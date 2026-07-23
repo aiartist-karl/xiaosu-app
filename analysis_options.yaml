@@ -1,0 +1,56 @@
+# ============================================================================
+# 小酥 (XiaoSu) - Dart 代码规范配置
+# ============================================================================
+
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # ==================== 类型安全 ====================
+    # 始终声明返回类型，增强代码可读性
+    always_declare_return_types: true
+    # 避免类型转换，优先使用 as 或模式匹配
+    avoid_type_to_string: true
+
+    # ==================== 代码风格 ====================
+    # 使用 const 构造函数优化性能
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_all: true
+
+    # ==================== 可维护性 ====================
+    # 避免空的 else 块
+    avoid_empty_else: true
+    # 避免在 if 和 for 中使用不必要的括号
+    unnecessary_parenthesis: true
+    # 避免不必要的字符串插值
+    unnecessary_string_interpolations: true
+
+    # ==================== 安全 ====================
+    # 避免相对导入，使用包导入
+    always_use_package_imports: true
+    # 避免在 Web 代码中使用 dart:io
+    avoid_web_libraries_in_flutter: true
+
+    # ==================== 命名规范 ====================
+    # 类成员使用 lowerCamelCase
+    non_constant_identifier_names: true
+    # 常量使用 lowerCamelCase（Dart 推荐风格）
+    constant_identifier_names: true
+
+analyzer:
+  # 排除生成的文件
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.gr.dart"
+    - "lib/generated/**"
+
+  errors:
+    # 将常见的严重问题提升为错误级别
+    missing_required_param: error
+    missing_return: error
+    dead_code: warning
+    unused_import: warning
+    unused_local_variable: warning
