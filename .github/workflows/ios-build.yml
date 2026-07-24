@@ -21,18 +21,32 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Precache iOS artifacts
+        run: flutter precache --ios
+
       - name: Prepare iOS build
         run: |
-          # Remove stale generated files that will be regenerated
-          rm -f ios/Flutter/Generated.xcconfig
-          rm -f ios/Flutter/flutter_export_environment.sh
-          rm -rf ios/.symlinks
-          # Re-run pub get to regenerate
-          flutter pub get
+          # Ensure Flutter.xcframework is in place
+          FLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)
+          if [ -n "$FLUTTER_CACHE" ] && [ ! -d "ios/Flutter/Flutter.xcframework" ]; then
+            echo "Copying Flutter.xcframework from cache..."
+            cp -r "$FLUTTER_CACHE" ios/Flutter/Flutter.xcframework
+          fi
+          # Also check for it in the flutter SDK bin/cache
+          if [ ! -d "ios/Flutter/Flutter.xcframework" ]; then
+            echo "Looking for Flutter.xcframework in FLUTTER_ROOT..."
+            ls -la $FLUTTER_ROOT/bin/cache/artifacts/engine/ios/ 2>/dev/null || true
+            find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -5
+            # Try to create it from the engine artifacts
+            ENGINE_DIR="$FLUTTER_ROOT/bin/cache/artifacts/engine/ios"
+            if [ -d "$ENGINE_DIR" ]; then
+              ls -la "$ENGINE_DIR"
+            fi
+          fi
 
       - name: Build iOS (unsigned)
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --verbose 2>&1 | tail -100
 
       - name: Package IPA
         run: |
