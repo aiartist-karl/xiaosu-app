@@ -20,25 +20,14 @@ jobs:
 
       - name: Create iOS project from scratch
         run: |
-          # Save original pubspec.yaml content
-          PKG_NAME=$(grep '^name:' pubspec.yaml | awk '{print $2}')
-          echo "Package name: $PKG_NAME"
-          
-          # Remove existing iOS directory
+          # Remove existing iOS directory  
           rm -rf ios/
           
-          # Regenerate iOS project using the exact package name
-          flutter create --platforms=ios --project-name="$PKG_NAME" --org=com.xiaosu .
+          # Regenerate iOS project
+          flutter create --platforms=ios --project-name=xiaosu_core --org=com.xiaosu .
           
-          # Verify pubspec name wasn't changed
-          CURRENT_NAME=$(grep '^name:' pubspec.yaml | awk '{print $2}')
-          echo "Current name after create: $CURRENT_NAME"
-          
-          # Force-set the correct name if flutter create changed it
-          if [ "$CURRENT_NAME" != "$PKG_NAME" ]; then
-            echo "Fixing package name from $CURRENT_NAME to $PKG_NAME"
-            sed -i '' "s/^name: $CURRENT_NAME/name: $PKG_NAME/" pubspec.yaml
-          fi
+          # Restore original pubspec.yaml (flutter create changes the name)
+          cp .ci/pubspec_original.yaml pubspec.yaml
           
           # Ensure Flutter.xcframework is in place
           FLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)
@@ -46,20 +35,13 @@ jobs:
             cp -r "$FLUTTER_CACHE" ios/Flutter/
           fi
           
-          # Restore custom Info.plist if needed
-          if [ -f "ios/Runner/Info.plist" ]; then
-            echo "Info.plist exists"
-          fi
-          
-          # Run pub get to set up all dependencies
+          # Run pub get with correct package name
           flutter pub get
           
           # Verify
-          echo "=== Final package name ==="
-          head -3 pubspec.yaml
-          echo "=== iOS directory ==="
-          ls ios/
-          echo "=== Flutter dir ==="
+          echo "=== Package name ==="
+          head -1 pubspec.yaml
+          echo "=== iOS Flutter dir ==="
           ls ios/Flutter/
 
       - name: Build iOS (unsigned)
