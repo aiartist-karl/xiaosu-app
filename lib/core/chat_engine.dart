@@ -1,139 +1,312 @@
+// ============================================================================
+// 小酥 - 对话引擎（支持Agent模式 + 直连模式 + 多会话 + 引用回复）
+// ============================================================================
+
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../models/chat_message.dart';
+import '../models/agent_message.dart';
+import '../core/services/agent_api_service.dart';
+import '../core/llm/llm_provider.dart';
+import '../core/llm/llm_router.dart';
+import '../core/memory/memory_center.dart';
 import '../config/app_config.dart';
+import 'common/models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show VoidCallback;
 
-/// 聊天引擎 - 管理SSE流式对话
 class ChatEngine {
-  static final ChatEngine _instance = ChatEngine._internal();
-  factory ChatEngine() => _instance;
-  ChatEngine._internal();
+  static final ChatEngine instance = ChatEngine._();
+  ChatEngine._();
 
-  final StreamController<ChatEvent> _eventController = 
-      StreamController<ChatEvent>.broadcast();
-  
-  Stream<ChatEvent> get eventStream => _eventController.stream;
-  
-  String? _currentSessionId;
-  bool _isStreaming = false;
-  
-  bool get isStreaming => _isStreaming;
-  String? get sessionId => _currentSessionId;
+  final LlmRouter _router = LlmRouter.instance;
+  final MemoryCenterService _memory = MemoryCenterService.instance;
+  final AgentApiService _agentApi = AgentApiService.instance;
 
-  /// 发送消息并接收SSE流式回复
-  Future<void> sendMessage(String message, {String? sessionId, String? replyTo}) async {
-    if (_isStreaming) return;
-    _isStreaming = true;
+  final Map<String, List<ChatMessage>> _histories = {};
+  final Map<String, List<AgentMessage>> _agentMessages = {};
+  String? _activeConversationId;
+  String _systemPrompt = '你是小酥，一个智能AI助手。你友好、聪明、乐于助人。请用中文回答用户的问题。';
+  static const String _convStorageKey = 'xiaosu_conversations';
+
+  void Function(ChatMessage message)? onMessageReceived;
+  void Function(String error)? onError;
+  void Function(AgentMessage message)? onAgentMessage;
+  VoidCallback? onConversationsChanged;
+
+  void initialize({dynamic llmProvider, dynamic memoryCenter, dynamic skillRegistry}) {
+    _router.initialize();
+    _memory.initialize();
+  }
+
+  void setSystemPrompt(String prompt) { _systemPrompt = prompt; }
+  void setActiveConversation(String conversationId) {
+    _activeConversationId = conversationId;
+    _histories.putIfAbsent(conversationId, () => []);
+  }
+  List<ChatMessage> getHistory(String conversationId) => List.from(_histories[conversationId] ?? []);
+  List<AgentMessage> getAgentMessages(String messageId) => _agentMessages[messageId] ?? [];
+  List<String> get conversationIds => _histories.keys.toList();
+  Map<String, int> get conversationSummary => _histories.map((k, v) => MapEntry(k, v.length));
+
+  /// 发送消息（流式） - 支持引用回复
+  Stream<ChatMessage> sendMessageStream({
+    required String conversationId,
+    required String content,
+    String? modelId,
+    double temperature = 0.7,
+    List<String>? filePaths,
+    String? replyTo,
+  }) async* {
+    _histories.putIfAbsent(conversationId, () => []);
+    final history = _histories[conversationId]!;
+
+    // 如果有引用内容，拼接到消息前面
+    String finalContent = content;
+    if (replyTo != null && replyTo.isNotEmpty) {
+      finalContent = '[引用回复] $content';
+    }
+
+    final userMsg = ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      conversationId: conversationId,
+      content: content,
+      role: MessageRole.user,
+      timestamp: DateTime.now(),
+      metadata: replyTo != null && replyTo.isNotEmpty ? {'reply_to': replyTo} : null,
+    );
+    history.add(userMsg);
+    yield userMsg;
+    _updateConversationMetadata(conversationId, content);
+
+    if (AppConfig.useAgentMode) {
+      yield* _sendAgentStream(conversationId: conversationId, content: finalContent, history: history, filePaths: filePaths, replyTo: replyTo);
+    } else {
+      yield* _sendDirectStream(conversationId: conversationId, content: finalContent, history: history, modelId: modelId, temperature: temperature);
+    }
+  }
+
+  Stream<ChatMessage> _sendAgentStream({
+    required String conversationId,
+    required String content,
+    required List<ChatMessage> history,
+    List<String>? filePaths,
+    String? replyTo,
+  }) async* {
+    final msgId = 'agent_${DateTime.now().millisecondsSinceEpoch}';
+    _agentMessages[msgId] = [];
     
-    final url = '${AppConfig.agentChatEndpoint}';
-    final body = jsonEncode({
-      'message': message,
-      'session_id': sessionId ?? _currentSessionId,
-      if (replyTo != null) 'reply_to': replyTo,
-      'stream': true,
-    });
+    final answerBuffer = StringBuffer();
+    final Set<String> processedToolCallIds = {};
+    bool isCompleted = false;
 
     try {
-      final request = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
-        },
-        body: body,
-      );
+      await for (final agentMsg in _agentApi.sendMessage(
+        conversationId: conversationId,
+        message: content,
+        history: _buildApiHistory(history),
+        filePaths: filePaths,
+        replyTo: replyTo,
+      )) {
+        if (isCompleted) continue;
+        _agentMessages[msgId]!.add(agentMsg);
+        onAgentMessage?.call(agentMsg);
 
-      if (request.statusCode != 200) {
-        _eventController.add(ChatEvent.error('请求失败: ${request.statusCode}'));
-        _isStreaming = false;
-        return;
-      }
-
-      // 解析SSE流
-      final lines = request.body.split('\n');
-      String assistantContent = '';
-      
-      for (final line in lines) {
-        if (line.startsWith('data: ')) {
-          final data = line.substring(6);
-          if (data == '[DONE]') {
-            _eventController.add(ChatEvent.done(assistantContent));
+        switch (agentMsg.type) {
+          case AgentMessageType.thinking:
+            yield ChatMessage(
+              id: msgId,
+              conversationId: conversationId,
+              content: answerBuffer.toString(),
+              role: MessageRole.assistant,
+              timestamp: DateTime.now(),
+              status: MessageStatus.streaming,
+              metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList(), 'has_thinking': true},
+            );
             break;
-          }
-          
-          try {
-            final event = jsonDecode(data);
-            final type = event['type'] as String?;
-            final eventData = event['data'] as Map<String, dynamic>?;
-            
-            if (type == null || eventData == null) continue;
-            
-            switch (type) {
-              case 'text_delta':
-                final content = eventData['content'] as String? ?? '';
-                assistantContent += content;
-                _eventController.add(ChatEvent.textDelta(content));
-                break;
-              case 'done':
-                _eventController.add(ChatEvent.done(assistantContent));
-                break;
-              case 'error':
-                final error = eventData['content'] as String? ?? '未知错误';
-                _eventController.add(ChatEvent.error(error));
-                break;
-              // thinking, tool_call, tool_result - 不再处理，后端已不发送
-              default:
-                break;
+
+          case AgentMessageType.toolCall:
+            final callId = agentMsg.callId ?? agentMsg.id;
+            if (!processedToolCallIds.contains(callId)) {
+              processedToolCallIds.add(callId);
+              yield ChatMessage(
+                id: msgId,
+                conversationId: conversationId,
+                content: answerBuffer.toString(),
+                role: MessageRole.assistant,
+                timestamp: DateTime.now(),
+                status: MessageStatus.streaming,
+                metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList(), 'has_tool_call': true},
+              );
             }
-          } catch (e) {
-            // 忽略解析错误
-          }
+            break;
+
+          case AgentMessageType.toolResult:
+            yield ChatMessage(
+              id: msgId,
+              conversationId: conversationId,
+              content: answerBuffer.toString(),
+              role: MessageRole.assistant,
+              timestamp: DateTime.now(),
+              status: MessageStatus.streaming,
+              metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
+            );
+            break;
+
+          case AgentMessageType.answer:
+            if (agentMsg.content.isNotEmpty) {
+              answerBuffer.write(agentMsg.content);
+            }
+            yield ChatMessage(
+              id: msgId,
+              conversationId: conversationId,
+              content: answerBuffer.toString(),
+              role: MessageRole.assistant,
+              timestamp: DateTime.now(),
+              status: MessageStatus.streaming,
+              metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
+            );
+            break;
+
+          case AgentMessageType.error:
+            yield ChatMessage(
+              id: msgId,
+              conversationId: conversationId,
+              content: answerBuffer.isNotEmpty ? answerBuffer.toString() : '⚠️ ${agentMsg.errorMessage ?? '发生错误'}',
+              role: MessageRole.assistant,
+              timestamp: DateTime.now(),
+              status: MessageStatus.error,
+              metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
+            );
+            isCompleted = true;
+            if (answerBuffer.isNotEmpty) {
+              history.add(ChatMessage(
+                id: msgId, conversationId: conversationId, content: answerBuffer.toString(),
+                role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.error,
+                metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
+              ));
+            }
+            break;
+
+          case AgentMessageType.done:
+            isCompleted = true;
+            break;
         }
       }
+
+      if (answerBuffer.isNotEmpty && !isCompleted) { isCompleted = true; }
       
-      if (!assistantContent.isEmpty && _isStreaming) {
-        _eventController.add(ChatEvent.done(assistantContent));
+      if (answerBuffer.isNotEmpty) {
+        final alreadyAdded = history.any((m) => m.id == msgId);
+        if (!alreadyAdded) {
+          history.add(ChatMessage(
+            id: msgId, conversationId: conversationId, content: answerBuffer.toString(),
+            role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.completed,
+            metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
+          ));
+        }
       }
     } catch (e) {
-      _eventController.add(ChatEvent.error('网络错误: $e'));
-    } finally {
-      _isStreaming = false;
-    }
-  }
-
-  /// 获取历史消息
-  Future<List<Map<String, dynamic>>> getHistory(String sessionId) async {
-    final url = '${AppConfig.agentApiBase}/api/history/$sessionId';
-    try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
-        },
+      final errorMsg = ChatMessage(
+        id: msgId, conversationId: conversationId,
+        content: '⚠️ 错误：${e.toString()}',
+        role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.error,
       );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data['messages'] ?? []);
-      }
-    } catch (e) {
-      // ignore
+      if (!history.any((m) => m.id == msgId)) { history.add(errorMsg); }
+      yield errorMsg;
     }
-    return [];
   }
 
-  void dispose() {
-    _eventController.close();
-  }
-}
+  Stream<ChatMessage> _sendDirectStream({
+    required String conversationId,
+    required String content,
+    required List<ChatMessage> history,
+    String? modelId,
+    double temperature = 0.7,
+  }) async* {
+    try {
+      final complexity = _router.analyzeComplexity(content);
+      final provider = _router.route(complexity: complexity, preferredModelId: modelId);
+      final buffer = StringBuffer();
+      final msgId = 'direct_${DateTime.now().millisecondsSinceEpoch}';
 
-/// 聊天事件
-class ChatEvent {
-  final String type;
-  final String content;
-  
-  ChatEvent._(this.type, this.content);
-  
-  factory ChatEvent.textDelta(String content) => ChatEvent._('text_delta', content);
-  factory ChatEvent.done(String content) => ChatEvent._('done', content);
-  factory ChatEvent.error(String content) => ChatEvent._('error', content);
+      await for (final chunk in provider.completeStream(
+        messages: _buildMessages(history),
+        temperature: temperature,
+        systemPrompt: _systemPrompt,
+      )) {
+        if (chunk.isDone) break;
+        buffer.write(chunk.content);
+        yield ChatMessage(id: msgId, conversationId: conversationId, content: buffer.toString(), role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.streaming);
+      }
+
+      final finalMsg = ChatMessage(id: msgId, conversationId: conversationId, content: buffer.toString(), role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.completed);
+      history.add(finalMsg);
+      yield finalMsg;
+    } catch (e) {
+      yield ChatMessage(id: 'error_${DateTime.now().millisecondsSinceEpoch}', conversationId: conversationId, content: '错误：${e.toString()}', role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.error);
+    }
+  }
+
+  List<Map<String, dynamic>> _buildApiHistory(List<ChatMessage> history, {int maxContext = 20}) {
+    final recent = history.length > maxContext ? history.sublist(history.length - maxContext) : history;
+    return recent.map((msg) => msg.toApiFormat()).toList();
+  }
+
+  List<Map<String, dynamic>> _buildMessages(List<ChatMessage> history, {int maxContext = 20}) {
+    final recent = history.length > maxContext ? history.sublist(history.length - maxContext) : history;
+    return recent.map((msg) => msg.toApiFormat()).toList();
+  }
+
+  Future<void> _updateConversationMetadata(String conversationId, String lastMessage) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_convStorageKey);
+      List<dynamic> list = [];
+      if (raw != null) { list = jsonDecode(raw) as List; }
+      final idx = list.indexWhere((e) => (e as Map)['id'] == conversationId);
+      final now = DateTime.now().toIso8601String();
+      final msgCount = _histories[conversationId]?.length ?? 0;
+      final userMsgs = _histories[conversationId]?.where((m) => m.role == MessageRole.user).toList() ?? [];
+      final firstUserMsg = userMsgs.isNotEmpty ? userMsgs.first : null;
+      String title = firstUserMsg != null && firstUserMsg.content.isNotEmpty
+          ? (firstUserMsg.content.length > 30 ? '${firstUserMsg.content.substring(0, 30)}...' : firstUserMsg.content)
+          : '新对话';
+      
+      if (idx >= 0) {
+        list[idx] = {...Map<String, dynamic>.from(list[idx] as Map), 'updatedAt': now, 'messageCount': msgCount, 'lastMessage': lastMessage.length > 50 ? lastMessage.substring(0, 50) : lastMessage, 'title': title};
+      } else {
+        list.add({'id': conversationId, 'title': title, 'systemPrompt': '', 'modelId': 'deepseek-chat', 'status': 'active', 'messageCount': msgCount, 'lastMessage': lastMessage.length > 50 ? lastMessage.substring(0, 50) : lastMessage, 'createdAt': now, 'updatedAt': now});
+      }
+      await prefs.setString(_convStorageKey, jsonEncode(list));
+      onConversationsChanged?.call();
+    } catch (_) {}
+  }
+
+  void clearHistory(String conversationId) { _histories[conversationId]?.clear(); _agentMessages.removeWhere((k, _) => true); }
+  void deleteConversation(String conversationId) {
+    _histories.remove(conversationId);
+    _agentMessages.removeWhere((k, _) => true);
+    _deleteConversationFromStorage(conversationId);
+  }
+
+  Future<void> _deleteConversationFromStorage(String conversationId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_convStorageKey);
+      if (raw != null) {
+        final list = jsonDecode(raw) as List;
+        list.removeWhere((e) => (e as Map)['id'] == conversationId);
+        await prefs.setString(_convStorageKey, jsonEncode(list));
+        onConversationsChanged?.call();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> dispose() async {
+    _histories.clear();
+    _agentMessages.clear();
+    _agentApi.dispose();
+    await _router.dispose();
+  }
 }
