@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../services/performance/performance_monitor.dart';
 import '../../core/skill/skill_registry.dart';
 import '../../core/chat_engine.dart';
+import '../../models/chat_message.dart';
 
 /// 仪表盘 - 系统概览
 class DashboardScreen extends StatefulWidget {
@@ -108,11 +109,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogCtx);
-                final query = controller.text.trim();
+                final query = controller.text.trim().toLowerCase();
                 if (query.isNotEmpty) {
-                  final results = ChatEngine.instance.search(query);
+                  final engine = ChatEngine.instance;
+                  int matchCount = 0;
+                  for (final convId in engine.conversationIds) {
+                    final history = engine.getHistory(convId);
+                    for (final msg in history) {
+                      if (msg.content.toLowerCase().contains(query)) {
+                        matchCount++;
+                      }
+                    }
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('找到 ${results.length} 条相关消息')),
+                    SnackBar(content: Text('找到 $matchCount 条相关消息')),
                   );
                 }
               },
