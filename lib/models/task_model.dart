@@ -1,145 +1,127 @@
 // ============================================================================
-// 小酥 (XiaoSu) - 任务模型
+// 小酥 - 任务模型
 // ============================================================================
 
-import 'package:json_annotation/json_annotation.dart';
+import 'package:equatable/equatable.dart';
 
-part 'task_model.g.dart';
-
-/// 任务类型枚举
+/// 任务类型
 enum TaskType {
-  /// 一次性定时任务
-  oneTime('one_time'),
-  /// 周期重复任务
-  periodic('periodic'),
-  /// 话题追踪任务
-  topicTrack('topic_track');
-
-  final String value;
-  const TaskType(this.value);
+  scheduled,      // 定时任务
+  topicTracking,  // 话题追踪
+  reminder,       // 提醒
+  workflow,       // 工作流
+  custom,         // 自定义
 }
 
-/// 任务状态枚举
+/// 任务状态
 enum TaskStatus {
-  /// 已调度（等待执行）
-  scheduled('scheduled'),
-  /// 执行中
-  running('running'),
-  /// 已完成（一次性任务）
-  completed('completed'),
-  /// 已暂停
-  paused('paused'),
-  /// 已取消
-  cancelled('cancelled'),
-  /// 执行失败
-  failed('failed');
-
-  final String value;
-  const TaskStatus(this.value);
+  idle,       // 空闲
+  running,    // 运行中
+  paused,     // 已暂停
+  completed,  // 已完成
+  failed,     // 失败
+  cancelled,  // 已取消
 }
 
-/// 调度任务模型
-@JsonSerializable()
-class ScheduledTask {
-  /// 任务唯一 ID
+/// 任务模型
+class TaskModel extends Equatable {
   final String id;
-
-  /// 任务标题
-  final String title;
-
-  /// 任务类型
+  final String name;
+  final String description;
   final TaskType type;
-
-  /// 执行时的提示词
-  final String prompt;
-
-  /// 计划执行时间
-  final DateTime executeAt;
-
-  /// 周期任务的间隔（秒）
-  @Default(null)
-  final int? intervalSeconds;
-
-  /// 关联的对话 ID
-  @Default('')
-  final String conversationId;
-
-  /// 任务状态
   final TaskStatus status;
-
-  /// 附加元数据
-  @Default(null)
+  final DateTime createdAt;
+  final DateTime? lastExecutedAt;
+  final int executionCount;
+  final String? lastError;
+  final String? lastResult;
+  final Duration? interval;      // 执行间隔
+  final DateTime? nextExecutionAt; // 下次执行时间
+  final Map<String, dynamic> config; // 任务配置
   final Map<String, dynamic>? metadata;
 
-  /// 创建时间
-  final DateTime createdAt;
-
-  /// 最后执行时间
-  @Default(null)
-  final DateTime? lastExecutedAt;
-
-  /// 执行次数
-  @Default(0)
-  final int executionCount;
-
-  /// 最后错误信息
-  @Default('')
-  final String lastError;
-
-  const ScheduledTask({
+  const TaskModel({
     required this.id,
-    required this.title,
-    required this.type,
-    required this.prompt,
-    required this.executeAt,
-    this.intervalSeconds,
-    this.conversationId = '',
-    required this.status,
-    this.metadata,
+    required this.name,
+    this.description = '',
+    this.type = TaskType.custom,
+    this.status = TaskStatus.idle,
     required this.createdAt,
     this.lastExecutedAt,
     this.executionCount = 0,
-    this.lastError = '',
+    this.lastError,
+    this.lastResult,
+    this.interval,
+    this.nextExecutionAt,
+    this.config = const {},
+    this.metadata,
   });
 
-  /// 任务是否处于活跃状态
-  bool get isActive =>
-      status == TaskStatus.scheduled || status == TaskStatus.running;
+  factory TaskModel.fromJson(Map<String, dynamic> json) {
+    return TaskModel(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      description: json['description'] as String? ?? '',
+      type: TaskType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => TaskType.custom,
+      ),
+      status: TaskStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => TaskStatus.idle,
+      ),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      lastExecutedAt: json['lastExecutedAt'] != null
+          ? DateTime.parse(json['lastExecutedAt'] as String) : null,
+      executionCount: json['executionCount'] as int? ?? 0,
+      lastError: json['lastError'] as String?,
+      lastResult: json['lastResult'] as String?,
+      interval: json['intervalMs'] != null
+          ? Duration(milliseconds: json['intervalMs'] as int) : null,
+      nextExecutionAt: json['nextExecutionAt'] != null
+          ? DateTime.parse(json['nextExecutionAt'] as String) : null,
+      config: (json['config'] as Map<String, dynamic>?) ?? {},
+      metadata: json['metadata'] as Map<String, dynamic>?,
+    );
+  }
 
-  factory ScheduledTask.fromJson(Map<String, dynamic> json) =>
-      _$ScheduledTaskFromJson(json);
+  Map<String, dynamic> toJson() => {
+    'id': id, 'name': name, 'description': description,
+    'type': type.name, 'status': status.name,
+    'createdAt': createdAt.toIso8601String(),
+    'lastExecutedAt': lastExecutedAt?.toIso8601String(),
+    'executionCount': executionCount,
+    'lastError': lastError, 'lastResult': lastResult,
+    'intervalMs': interval?.inMilliseconds,
+    'nextExecutionAt': nextExecutionAt?.toIso8601String(),
+    'config': config, 'metadata': metadata,
+  };
 
-  Map<String, dynamic> toJson() => _$ScheduledTaskToJson(this);
-
-  ScheduledTask copyWith({
-    String? id,
-    String? title,
-    TaskType? type,
-    String? prompt,
-    DateTime? executeAt,
-    int? intervalSeconds,
-    String? conversationId,
-    TaskStatus? status,
-    Map<String, dynamic>? metadata,
-    DateTime? createdAt,
-    DateTime? lastExecutedAt,
-    int? executionCount,
-    String? lastError,
+  TaskModel copyWith({
+    String? id, String? name, String? description, TaskType? type,
+    TaskStatus? status, DateTime? createdAt, DateTime? lastExecutedAt,
+    int? executionCount, String? lastError, String? lastResult,
+    Duration? interval, DateTime? nextExecutionAt,
+    Map<String, dynamic>? config, Map<String, dynamic>? metadata,
   }) {
-    return ScheduledTask(
+    return TaskModel(
       id: id ?? this.id,
-      title: title ?? this.title,
+      name: name ?? this.name,
+      description: description ?? this.description,
       type: type ?? this.type,
-      prompt: prompt ?? this.prompt,
-      executeAt: executeAt ?? this.executeAt,
-      intervalSeconds: intervalSeconds ?? this.intervalSeconds,
-      conversationId: conversationId ?? this.conversationId,
       status: status ?? this.status,
-      metadata: metadata ?? this.metadata,
       createdAt: createdAt ?? this.createdAt,
       lastExecutedAt: lastExecutedAt ?? this.lastExecutedAt,
       executionCount: executionCount ?? this.executionCount,
       lastError: lastError ?? this.lastError,
+      lastResult: lastResult ?? this.lastResult,
+      interval: interval ?? this.interval,
+      nextExecutionAt: nextExecutionAt ?? this.nextExecutionAt,
+      config: config ?? this.config,
+      metadata: metadata ?? this.metadata,
     );
   }
+
+  @override
+  List<Object?> get props => [id, name, type, status];
 }

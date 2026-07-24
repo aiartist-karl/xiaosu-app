@@ -12,13 +12,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:xiaosu_core/ui/theme/app_theme.dart';
-import 'package:xiaosu_core/ui/pages/home_page.dart';
-import 'package:xiaosu_core/ui/pages/chat_page.dart';
-import 'package:xiaosu_core/ui/pages/settings_page.dart';
-import 'package:xiaosu_core/ui/pages/skills_page.dart';
-import 'package:xiaosu_core/ui/pages/tasks_page.dart';
-import 'package:xiaosu_core/ui/pages/error_page.dart';
+import 'package:xiaosu/ui/theme/app_theme.dart';
+import 'package:xiaosu/ui/pages/home_page.dart';
+import 'package:xiaosu/ui/pages/chat_page.dart';
+import 'package:xiaosu/ui/pages/settings_page.dart';
+import 'package:xiaosu/ui/pages/skills_page.dart';
+import 'package:xiaosu/ui/pages/tasks_page.dart';
+import 'package:xiaosu/ui/pages/error_page.dart';
 
 /// ============================================================================
 // 小酥 APP 根 Widget

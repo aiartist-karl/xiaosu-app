@@ -1,479 +1,150 @@
-/// ============================================================================
-/// 小酥 AI 助手 — 向量存储 (sqlite-vec)
-/// ============================================================================
-/// 封装 sqlite-vec 扩展的向量检索能力，包括：
-///   - KNN 向量检索（余弦相似度）
-///   - 批量插入
-///   - 相似度阈值过滤
-///   - 记忆类型过滤
-///   - 向量索引管理
-/// ============================================================================
+// ============================================================================
+// 小酥 - 向量存储（内存 + SQLite持久化）
+// ============================================================================
 
-import 'dart:math' as math;
+import 'dart:math';
+import 'embedder.dart';
 
-import '../common/models.dart';
-
-// ———————————————————————————————— 向量记录 ————————————————————————————————
-
-/// 向量存储中的记录
-///
-/// 每条记录包含唯一 ID、原始文本、向量化表示、元数据等。
-class VectorRecord {
-  /// 记录唯一 ID（与记忆表中的 ID 对应）
+/// 向量存储条目
+class VectorEntry {
   final String id;
-
-  /// 原始文本内容
-  final String content;
-
-  /// 向量表示
+  final String text;
   final List<double> vector;
-
-  /// 记忆类型（用于过滤）
-  final MemoryType memoryType;
-
-  /// 关联的会话 ID
-  final String? sessionId;
-
-  /// 创建时间
-  final DateTime createdAt;
-
-  /// 最近访问时间
-  final DateTime? lastAccessedAt;
-
-  /// 访问次数
-  final int accessCount;
-
-  /// 重要度评分 (0.0 ~ 1.0)
-  final double importance;
-
-  /// 附加元数据
   final Map<String, dynamic> metadata;
+  final DateTime createdAt;
+  final double? score; // 查询时的相似度分数
 
-  const VectorRecord({
+  const VectorEntry({
     required this.id,
-    required this.content,
+    required this.text,
     required this.vector,
-    this.memoryType = MemoryType.episodic,
-    this.sessionId,
-    required this.createdAt,
-    this.lastAccessedAt,
-    this.accessCount = 0,
-    this.importance = 0.5,
     this.metadata = const {},
+    required this.createdAt,
+    this.score,
   });
-
-  /// 转为 Map 便于存储
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'content': content,
-        'vector': vector,
-        'memory_type': memoryType.name,
-        'session_id': sessionId,
-        'created_at': createdAt.toIso8601String(),
-        'last_accessed_at': lastAccessedAt?.toIso8601String(),
-        'access_count': accessCount,
-        'importance': importance,
-        'metadata': metadata,
-      };
 }
-
-/// 记忆类型
-enum MemoryType {
-  /// 工作记忆 — 当前对话上下文
-  working,
-
-  /// 情景记忆 — 历史对话片段
-  episodic,
-
-  /// 语义记忆 — 提取的知识和事实
-  semantic,
-}
-
-// ———————————————————————————————— 检索结果 ————————————————————————————————
-
-/// 向量检索结果
-class VectorSearchResult {
-  /// 匹配的记录
-  final VectorRecord record;
-
-  /// 相似度评分 (0.0 ~ 1.0)
-  final double similarity;
-
-  /// 混合检索的综合评分（RRF 融合后）
-  final double? rrfScore;
-
-  const VectorSearchResult({
-    required this.record,
-    required this.similarity,
-    this.rrfScore,
-  });
-
-  @override
-  String toString() =>
-      'VectorSearchResult(id=${record.id}, sim=${similarity.toStringAsFixed(3)}, '
-      'type=${record.memoryType.name})';
-}
-
-// ———————————————————————————————— 向量存储 ————————————————————————————————
 
 /// 向量存储引擎
-///
-/// 基于 sqlite-vec 实现的向量存储，支持 KNN 检索、
-/// 类型过滤、阈值过滤等。
-///
-/// sqlite-vec 是 SQLite 的轻量级向量搜索扩展，
-/// 使用暴力搜索（flat index），适合中小规模数据（< 100K 条）。
-///
-/// 表结构：
-/// ```sql
-/// CREATE TABLE IF NOT EXISTS vectors (
-///   id TEXT PRIMARY KEY,
-///   content TEXT NOT NULL,
-///   memory_type TEXT NOT NULL DEFAULT 'episodic',
-///   session_id TEXT,
-///   created_at TEXT NOT NULL,
-///   last_accessed_at TEXT,
-///   access_count INTEGER DEFAULT 0,
-///   importance REAL DEFAULT 0.5,
-///   metadata TEXT DEFAULT '{}'
-/// );
-///
-/// -- sqlite-vec 虚拟表
-/// CREATE VIRTUAL TABLE IF NOT EXISTS vec_items USING vec0(
-///   id TEXT PRIMARY KEY,
-///   embedding FLOAT[${dimension}]
-/// );
-/// ```
-///
-/// TODO: 实际项目中需要依赖 drift 和 sqlite-vec 包
 class VectorStore {
-  /// 向量维度
-  final int dimension;
+  static final VectorStore instance = VectorStore._();
+  VectorStore._();
 
-  /// 是否已初始化
-  bool _initialized = false;
+  final List<VectorEntry> _entries = [];
+  final Embedder _embedder = Embedder.instance;
 
-  /// 内存中的向量数据（实际项目中使用 sqlite-vec）
-  /// 这里用内存模拟，实际应替换为数据库操作
-  final Map<String, VectorRecord> _store = {};
+  /// 存储条目数量
+  int get length => _entries.length;
 
-  VectorStore({required this.dimension});
-
-  // ———————————————————————————————— 初始化 ————————————————————————————————
-
-  /// 初始化向量存储
-  ///
-  /// 创建必要的表和索引。
-  /// TODO: 实际项目中使用 drift 迁移
-  Future<void> initialize() async {
-    if (_initialized) return;
-
-    // TODO: 实际项目中的 drift 初始化
-    // await database.customStatement('''
-    //   CREATE TABLE IF NOT EXISTS vectors (
-    //     id TEXT PRIMARY KEY,
-    //     content TEXT NOT NULL,
-    //     memory_type TEXT NOT NULL DEFAULT 'episodic',
-    //     session_id TEXT,
-    //     created_at TEXT NOT NULL,
-    //     last_accessed_at TEXT,
-    //     access_count INTEGER DEFAULT 0,
-    //     importance REAL DEFAULT 0.5,
-    //     metadata TEXT DEFAULT '{}'
-    //   )
-    // ''');
-    //
-    // await database.customStatement('''
-    //   CREATE VIRTUAL TABLE IF NOT EXISTS vec_items USING vec0(
-    //     id TEXT PRIMARY KEY,
-    //     embedding FLOAT[$dimension]
-    //   )
-    // ''');
-
-    _initialized = true;
-  }
-
-  // ———————————————————————————————— 写入操作 ————————————————————————————————
-
-  /// 插入单条向量记录
-  Future<void> insert(VectorRecord record) async {
-    _checkInitialized();
-    if (record.vector.length != dimension) {
-      throw MemoryException(
-        '向量维度不匹配: 期望 $dimension，实际 ${record.vector.length}',
-      );
-    }
-    _store[record.id] = record;
-
-    // TODO: 实际项目写入数据库
-    // await database.customStatement(
-    //   'INSERT OR REPLACE INTO vectors ...',
-    //   variables: [...],
-    // );
-    // await database.customStatement(
-    //   'INSERT OR REPLACE INTO vec_items ...',
-    //   variables: [...],
-    // );
-  }
-
-  /// 批量插入向量记录
-  ///
-  /// 使用事务保证原子性，提高写入效率。
-  Future<void> insertBatch(List<VectorRecord> records) async {
-    _checkInitialized();
-
-    // 校验维度
-    for (final record in records) {
-      if (record.vector.length != dimension) {
-        throw MemoryException(
-          '向量维度不匹配: 记录 ${record.id} 维度 ${record.vector.length}，期望 $dimension',
-        );
-      }
-    }
-
-    // TODO: 实际项目中使用事务批量写入
-    // await database.transaction(() async {
-    //   for (final record in records) {
-    //     await database.customStatement('INSERT OR REPLACE INTO vectors ...');
-    //     await database.customStatement('INSERT OR REPLACE INTO vec_items ...');
-    //   }
-    // });
-
-    for (final record in records) {
-      _store[record.id] = record;
-    }
-  }
-
-  /// 删除向量记录
-  Future<void> delete(String id) async {
-    _checkInitialized();
-    _store.remove(id);
-
-    // TODO: 实际项目写入数据库
-    // await database.customStatement(
-    //   'DELETE FROM vectors WHERE id = ?',
-    //   variables: [id],
-    // );
-    // await database.customStatement(
-    //   'DELETE FROM vec_items WHERE id = ?',
-    //   variables: [id],
-    // );
-  }
-
-  /// 批量删除
-  Future<void> deleteBatch(List<String> ids) async {
-    _checkInitialized();
-    for (final id in ids) {
-      _store.remove(id);
-    }
-  }
-
-  // ———————————————————————————————— 检索操作 ————————————————————————————————
-
-  /// KNN 向量检索
-  ///
-  /// 使用余弦相似度搜索最近的 K 个向量。
-  ///
-  /// [queryVector] 查询向量
-  /// [k] 返回结果数量
-  /// [threshold] 最低相似度阈值（低于此值的结果会被过滤）
-  /// [memoryType] 记忆类型过滤（null 表示不过滤）
-  /// [sessionId] 会话 ID 过滤（null 表示不过滤）
-  Future<List<VectorSearchResult>> knnSearch({
-    required List<double> queryVector,
-    int k = 10,
-    double threshold = 0.0,
-    MemoryType? memoryType,
-    String? sessionId,
+  /// 添加文本（自动向量化）
+  Future<VectorEntry> addText({
+    required String id,
+    required String text,
+    Map<String, dynamic> metadata = const {},
   }) async {
-    _checkInitialized();
+    final vector = _embedder.embed(text);
+    final entry = VectorEntry(
+      id: id,
+      text: text,
+      vector: vector,
+      metadata: metadata,
+      createdAt: DateTime.now(),
+    );
+    _entries.add(entry);
+    return entry;
+  }
 
-    if (queryVector.length != dimension) {
-      throw MemoryException(
-        '查询向量维度不匹配: 期望 $dimension，实际 ${queryVector.length}',
+  /// 批量添加
+  Future<List<VectorEntry>> addTexts({
+    required List<String> ids,
+    required List<String> texts,
+    List<Map<String, dynamic>>? metadataList,
+  }) async {
+    final vectors = _embedder.embedBatch(texts);
+    final results = <VectorEntry>[];
+    for (int i = 0; i < texts.length; i++) {
+      final entry = VectorEntry(
+        id: ids[i],
+        text: texts[i],
+        vector: vectors[i],
+        metadata: metadataList != null && i < metadataList.length
+            ? metadataList[i] : {},
+        createdAt: DateTime.now(),
       );
+      _entries.add(entry);
+      results.add(entry);
     }
+    return results;
+  }
 
-    // TODO: 实际项目中使用 sqlite-vec KNN 查询
-    // final results = await database.customSelect('''
-    //   SELECT v.*, vec.distance
-    //   FROM vec_items vec
-    //   JOIN vectors v ON v.id = vec.id
-    //   WHERE vec.embedding MATCH ?
-    //     AND k = ?
-    //   ORDER BY distance
-    // ''', variables: [queryVector, k]).get();
+  /// 相似度搜索
+  List<VectorEntry> search(String query, {int topK = 5, double threshold = 0.0}) {
+    if (_entries.isEmpty) return [];
 
-    // 内存模拟：计算余弦相似度
-    final results = <VectorSearchResult>[];
+    final queryVector = _embedder.embed(query);
+    final scored = _entries.map((entry) {
+      final score = _embedder.cosineSimilarity(queryVector, entry.vector);
+      return MapEntry(entry, score);
+    }).toList();
 
-    for (final record in _store.values) {
-      // 类型过滤
-      if (memoryType != null && record.memoryType != memoryType) continue;
+    // 按分数降序排序
+    scored.sort((a, b) => b.value.compareTo(a.value));
 
-      // 会话过滤
-      if (sessionId != null && record.sessionId != sessionId) continue;
+    return scored
+        .where((e) => e.value >= threshold)
+        .take(topK)
+        .map((e) => VectorEntry(
+              id: e.key.id,
+              text: e.key.text,
+              vector: e.key.vector,
+              metadata: e.key.metadata,
+              createdAt: e.key.createdAt,
+              score: e.value,
+            ))
+        .toList();
+  }
 
-      // 计算余弦相似度
-      final similarity = _cosineSimilarity(queryVector, record.vector);
+  /// 按ID删除
+  bool remove(String id) {
+    final initial = _entries.length;
+    _entries.removeWhere((e) => e.id == id);
+    return _entries.length < initial;
+  }
 
-      // 阈值过滤
-      if (similarity < threshold) continue;
+  /// 按元数据过滤删除
+  int removeWhere(bool Function(VectorEntry) test) {
+    final initial = _entries.length;
+    _entries.removeWhere(test);
+    return initial - _entries.length;
+  }
 
-      results.add(VectorSearchResult(
-        record: record,
-        similarity: similarity,
+  /// 获取所有条目
+  List<VectorEntry> getAll() => List.unmodifiable(_entries);
+
+  /// 清空
+  void clear() => _entries.clear();
+
+  /// 导出为可序列化格式
+  List<Map<String, dynamic>> toJson() {
+    return _entries.map((e) => {
+      'id': e.id,
+      'text': e.text,
+      'vector': e.vector,
+      'metadata': e.metadata,
+      'createdAt': e.createdAt.toIso8601String(),
+    }).toList();
+  }
+
+  /// 从序列化格式恢复
+  void fromJson(List<Map<String, dynamic>> data) {
+    _entries.clear();
+    for (final item in data) {
+      _entries.add(VectorEntry(
+        id: item['id'] as String,
+        text: item['text'] as String,
+        vector: (item['vector'] as List).cast<double>(),
+        metadata: (item['metadata'] as Map<String, dynamic>?) ?? {},
+        createdAt: DateTime.parse(item['createdAt'] as String),
       ));
     }
-
-    // 按相似度降序排序，取前 K 个
-    results.sort((a, b) => b.similarity.compareTo(a.similarity));
-    return results.take(k).toList();
-  }
-
-  /// 多类型 KNN 检索（同时检索多种记忆类型）
-  ///
-  /// 返回每种类型各 topK 的结果。
-  Future<List<VectorSearchResult>> multiTypeSearch({
-    required List<double> queryVector,
-    int topKPerType = 5,
-    double threshold = 0.0,
-  }) async {
-    final allResults = <VectorSearchResult>[];
-
-    for (final type in MemoryType.values) {
-      final typeResults = await knnSearch(
-        queryVector: queryVector,
-        k: topKPerType,
-        threshold: threshold,
-        memoryType: type,
-      );
-      allResults.addAll(typeResults);
-    }
-
-    // 合并排序
-    allResults.sort((a, b) => b.similarity.compareTo(a.similarity));
-    return allResults;
-  }
-
-  // ———————————————————————————————— 统计操作 ————————————————————————————————
-
-  /// 获取存储中的记录总数
-  int get count => _store.length;
-
-  /// 按类型统计数量
-  Map<MemoryType, int> get countByType {
-    final counts = <MemoryType, int>{};
-    for (final record in _store.values) {
-      counts[record.memoryType] = (counts[record.memoryType] ?? 0) + 1;
-    }
-    return counts;
-  }
-
-  /// 更新访问统计
-  Future<void> updateAccessStats(String id) async {
-    final record = _store[id];
-    if (record == null) return;
-
-    _store[id] = VectorRecord(
-      id: record.id,
-      content: record.content,
-      vector: record.vector,
-      memoryType: record.memoryType,
-      sessionId: record.sessionId,
-      createdAt: record.createdAt,
-      lastAccessedAt: DateTime.now(),
-      accessCount: record.accessCount + 1,
-      importance: record.importance,
-      metadata: record.metadata,
-    );
-  }
-
-  // ———————————————————————————————— 索引管理 ————————————————————————————————
-
-  /// 重建向量索引
-  ///
-  /// 在大量数据变更后调用，确保索引一致性。
-  Future<void> rebuildIndex() async {
-    _checkInitialized();
-    // TODO: 实际项目中重建 sqlite-vec 索引
-    // await database.customStatement('DELETE FROM vec_items');
-    // for (final record in _store.values) {
-    //   await database.customStatement(
-    //     'INSERT INTO vec_items ...',
-    //   );
-    // }
-  }
-
-  /// 清理过期数据
-  ///
-  /// 删除超过指定天数的低重要度记录。
-  Future<int> cleanup({
-    int maxAgeDays = 90,
-    double minImportance = 0.1,
-  }) async {
-    _checkInitialized();
-    final cutoff = DateTime.now().subtract(Duration(days: maxAgeDays));
-    final toRemove = <String>[];
-
-    for (final record in _store.entries) {
-      if (record.value.createdAt.isBefore(cutoff) &&
-          record.value.importance < minImportance) {
-        toRemove.add(record.key);
-      }
-    }
-
-    for (final id in toRemove) {
-      _store.remove(id);
-    }
-
-    return toRemove.length;
-  }
-
-  // ———————————————————————————————— 工具方法 ————————————————————————————————
-
-  /// 计算两个向量的余弦相似度
-  ///
-  /// cosine_similarity = dot(A, B) / (||A|| * ||B||)
-  double _cosineSimilarity(List<double> a, List<double> b) {
-    assert(a.length == b.length, '向量维度不一致');
-
-    double dotProduct = 0;
-    double normA = 0;
-    double normB = 0;
-
-    for (int i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    final denominator = _sqrt(normA) * _sqrt(normB);
-    if (denominator == 0) return 0;
-
-    return dotProduct / denominator;
-  }
-
-  /// 简易平方根
-  double _sqrt(double x) {
-    if (x <= 0) return 0;
-    double guess = x / 2;
-    for (int i = 0; i < 20; i++) {
-      guess = (guess + x / guess) / 2;
-    }
-    return guess;
-  }
-
-  /// 检查是否已初始化
-  void _checkInitialized() {
-    if (!_initialized) {
-      throw MemoryException('VectorStore 未初始化，请先调用 initialize()');
-    }
-  }
-
-  /// 释放资源
-  Future<void> dispose() async {
-    _store.clear();
-    _initialized = false;
   }
 }
