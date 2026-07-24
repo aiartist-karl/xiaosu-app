@@ -34,7 +34,7 @@ dependencies:
   
   # 工具
   uuid: ^4.2.1
-  flutter_tts: ^4.0.2
+  flutter_tts: 4.0.2
   intl: ^0.20.2
 
 dev_dependencies:
