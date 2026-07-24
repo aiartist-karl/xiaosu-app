@@ -18,32 +18,27 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Flutter pub get
-        run: flutter pub get
-
-      - name: Regenerate iOS project
+      - name: Create iOS project from scratch
         run: |
-          # Save critical files before regenerating
-          cp pubspec.yaml /tmp/pubspec.yaml.bak
-          cp lib/main.dart /tmp/main.dart.bak 2>/dev/null || true
-          cp ios/Runner/AppDelegate.swift /tmp/AppDelegate.swift.bak 2>/dev/null || true
-          cp ios/Runner/Info.plist /tmp/Info.plist.bak 2>/dev/null || true
-          cp ios/Runner/Runner.entitlements /tmp/Runner.entitlements.bak 2>/dev/null || true
-          cp -r assets /tmp/assets.bak 2>/dev/null || true
+          # Save original pubspec.yaml content
+          PKG_NAME=$(grep '^name:' pubspec.yaml | awk '{print $2}')
+          echo "Package name: $PKG_NAME"
           
-          # Remove existing iOS project
+          # Remove existing iOS directory
           rm -rf ios/
           
-          # Regenerate iOS project from Flutter template
-          flutter create --platforms=ios --project-name=xiaosu_core --org=com.xiaosu .
+          # Regenerate iOS project using the exact package name
+          flutter create --platforms=ios --project-name="$PKG_NAME" --org=com.xiaosu .
           
-          # Restore critical files
-          cp /tmp/pubspec.yaml.bak pubspec.yaml
-          cp /tmp/main.dart.bak lib/main.dart 2>/dev/null || true
-          cp /tmp/AppDelegate.swift.bak ios/Runner/AppDelegate.swift 2>/dev/null || true
-          cp /tmp/Info.plist.bak ios/Runner/Info.plist 2>/dev/null || true
-          cp /tmp/Runner.entitlements.bak ios/Runner/Runner.entitlements 2>/dev/null || true
-          cp -r /tmp/assets.bak assets 2>/dev/null || true
+          # Verify pubspec name wasn't changed
+          CURRENT_NAME=$(grep '^name:' pubspec.yaml | awk '{print $2}')
+          echo "Current name after create: $CURRENT_NAME"
+          
+          # Force-set the correct name if flutter create changed it
+          if [ "$CURRENT_NAME" != "$PKG_NAME" ]; then
+            echo "Fixing package name from $CURRENT_NAME to $PKG_NAME"
+            sed -i '' "s/^name: $CURRENT_NAME/name: $PKG_NAME/" pubspec.yaml
+          fi
           
           # Ensure Flutter.xcframework is in place
           FLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)
@@ -51,11 +46,21 @@ jobs:
             cp -r "$FLUTTER_CACHE" ios/Flutter/
           fi
           
-          # Re-run pub get to regenerate plugin configs
+          # Restore custom Info.plist if needed
+          if [ -f "ios/Runner/Info.plist" ]; then
+            echo "Info.plist exists"
+          fi
+          
+          # Run pub get to set up all dependencies
           flutter pub get
           
-          echo "=== Verify package name ==="
+          # Verify
+          echo "=== Final package name ==="
           head -3 pubspec.yaml
+          echo "=== iOS directory ==="
+          ls ios/
+          echo "=== Flutter dir ==="
+          ls ios/Flutter/
 
       - name: Build iOS (unsigned)
         run: |
