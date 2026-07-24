@@ -1,23 +1,54 @@
 // ============================================================================
-// 小酥 - 设置主页面（完整版）
+// 小酥 - 设置主页面（完整版）- 深色模式持久化
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../app.dart';
 
 /// 设置主页面
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  static const String _themeKey = 'xiaosu_theme_mode';
+  
   bool _darkMode = false;
   bool _enableMemory = true;
   bool _enableVoice = false;
   String _selectedModel = 'DeepSeek V4 Flash';
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeStr = prefs.getString(_themeKey) ?? 'system';
+    setState(() {
+      _darkMode = themeStr == 'dark';
+      _isInitialized = true;
+    });
+  }
+
+  Future<void> _setDarkMode(bool value) async {
+    setState(() => _darkMode = value);
+    
+    final themeMode = value ? ThemeMode.dark : ThemeMode.light;
+    ref.read(themeModeProvider.notifier).state = themeMode;
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeKey, value ? 'dark' : 'light');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +59,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSection('通用', [
             SwitchListTile(
               title: const Text('深色模式'),
-              subtitle: const Text('跟随系统或手动切换'),
+              subtitle: Text(_darkMode ? '当前：深色主题' : '当前：浅色主题'),
               value: _darkMode,
-              onChanged: (v) => setState(() => _darkMode = v),
-              secondary: const Icon(Icons.dark_mode),
+              onChanged: _setDarkMode,
+              secondary: Icon(_darkMode ? Icons.dark_mode : Icons.light_mode),
             ),
           ]),
           _buildSection('AI 模型', [
@@ -66,13 +97,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.extension),
               title: const Text('技能管理'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.pushNamed('skill-manager'),
+              onTap: () => context.go('/skills'),
             ),
             ListTile(
               leading: const Icon(Icons.store),
               title: const Text('插件商店'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.pushNamed('plugins'),
+              onTap: () => context.go('/plugins'),
+            ),
+          ]),
+          _buildSection('工具', [
+            ListTile(
+              leading: const Icon(Icons.build),
+              title: const Text('工具集'),
+              subtitle: const Text('日历、邮件、文件管理、记忆'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/tools'),
             ),
           ]),
           _buildSection('高级', [

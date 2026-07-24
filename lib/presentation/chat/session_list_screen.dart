@@ -1,11 +1,13 @@
 // ============================================================================
-// 小酥 - 会话列表界面
+// 小酥 - 会话列表界面（多会话管理 - 持久化版）
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/chat_engine.dart';
-import '../../../models/conversation.dart';
+import '../../../data/models/conversation_model.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 会话列表界面
 class SessionListScreen extends StatefulWidget {
@@ -17,41 +19,141 @@ class SessionListScreen extends StatefulWidget {
 
 class _SessionListScreenState extends State<SessionListScreen> {
   final ChatEngine _engine = ChatEngine.instance;
-  final List<Conversation> _conversations = [];
+  static const String _storageKey = 'xiaosu_conversations';
+  List<ConversationModel> _conversations = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadConversations();
+    // 监听引擎的会话变化
+    _engine.onConversationsChanged = () {
+      if (mounted) _loadConversations();
+    };
   }
 
-  void _loadConversations() {
-    final ids = _engine.conversationIds;
-    setState(() {
-      _conversations.clear();
-      for (final id in ids) {
-        final history = _engine.getHistory(id);
-        _conversations.add(Conversation(
-          id: id,
-          title: history.isNotEmpty ? _extractTitle(history.first.content) : '新对话',
-          createdAt: history.isNotEmpty ? history.first.timestamp : DateTime.now(),
-          updatedAt: history.isNotEmpty ? history.last.timestamp : DateTime.now(),
-          messageCount: history.length,
-        ));
+  @override
+  void dispose() {
+    _engine.onConversationsChanged = null;
+    super.dispose();
+  }
+
+  Future<void> _loadConversations() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw != null) {
+        final list = jsonDecode(raw) as List;
+        setState(() {
+          _conversations = list
+              .map((e) => ConversationModel.fromMap(Map<String, dynamic>.from(e as Map)))
+              .where((c) => c.status != 'deleted')
+              .toList()
+            ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
       }
-    });
+    } catch (_) {
+      setState(() => _isLoading = false);
+    }
   }
 
-  String _extractTitle(String content) {
-    if (content.length > 30) return '${content.substring(0, 30)}...';
-    return content;
+  Future<void> _saveConversations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = jsonEncode(_conversations.map((c) => c.toMap()).toList());
+    await prefs.setString(_storageKey, raw);
   }
 
   Future<void> _createNewConversation() async {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final id = 'conv_${DateTime.now().millisecondsSinceEpoch}';
+    final now = DateTime.now();
+    final conv = ConversationModel(
+      id: id,
+      title: '新对话',
+      createdAt: now,
+      updatedAt: now,
+      status: 'active',
+      messageCount: 0,
+    );
+    setState(() {
+      _conversations.insert(0, conv);
+    });
+    await _saveConversations();
     _engine.setActiveConversation(id);
-    if (mounted) {
-      context.pushNamed('chat', pathParameters: {'conversationId': id});
+    if (!mounted) return;
+    context.push('/chat/$id');
+  }
+
+  Future<void> _deleteConversation(int index) async {
+    final conv = _conversations[index];
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除对话'),
+        content: Text('确定删除"${conv.title}"吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      setState(() {
+        _conversations[index] = conv.copyWith(status: 'deleted');
+      });
+      await _saveConversations();
+      setState(() {
+        _conversations.removeAt(index);
+      });
+      _engine.deleteConversation(conv.id);
+    }
+  }
+
+  Future<void> _renameConversation(int index) async {
+    final conv = _conversations[index];
+    final ctrl = TextEditingController(text: conv.title);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重命名对话'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: '对话名称'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (newName != null && newName.isNotEmpty) {
+      setState(() {
+        _conversations[index] = conv.copyWith(title: newName, updatedAt: DateTime.now());
+      });
+      await _saveConversations();
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = DateTime(dt.year, dt.month, dt.day);
+    if (date == today) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } else if (date == today.subtract(const Duration(days: 1))) {
+      return '昨天 ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } else {
+      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
   }
 
@@ -59,78 +161,118 @@ class _SessionListScreenState extends State<SessionListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('对话列表'),
+        title: const Text('小酥'),
         centerTitle: true,
       ),
-      body: _conversations.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('💬', style: TextStyle(fontSize: 48)),
-                  const SizedBox(height: 16),
-                  Text('还没有对话记录', style: Theme.of(context).textTheme.bodyLarge),
-                  const SizedBox(height: 8),
-                  Text('开始一段新对话吧！', style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: _conversations.length,
-              itemBuilder: (context, index) {
-                final conv = _conversations[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      child: const Icon(Icons.chat_bubble_outline, size: 20),
-                    ),
-                    title: Text(conv.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${conv.messageCount} 条消息'),
-                    trailing: Text(
-                      _formatDate(conv.updatedAt),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    onTap: () => context.pushNamed('chat', pathParameters: {'conversationId': conv.id}),
-                    onLongPress: () => _confirmDelete(conv),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _conversations.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text('开始新对话', style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
+                      const SizedBox(height: 8),
+                      Text('点击右下角按钮创建你的第一次对话',
+                          style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        onPressed: _createNewConversation,
+                        icon: const Icon(Icons.add),
+                        label: const Text('新建对话'),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadConversations,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _conversations.length,
+                    itemBuilder: (context, index) {
+                      final conv = _conversations[index];
+                      return Dismissible(
+                        key: Key(conv.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          color: Colors.red,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        confirmDismiss: (_) async {
+                          await _deleteConversation(index);
+                          return false;
+                        },
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                            child: Icon(
+                              Icons.chat_bubble,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                          title: Text(
+                            conv.title,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            conv.lastMessage.isNotEmpty
+                                ? conv.lastMessage
+                                : '${conv.messageCount}条消息',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, color: Colors.grey),
+                          ),
+                          trailing: Text(
+                            _formatTime(conv.updatedAt),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          onTap: () {
+                            _engine.setActiveConversation(conv.id);
+                            context.push('/chat/${conv.id}');
+                          },
+                          onLongPress: () {
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (ctx) => SafeArea(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.edit),
+                                      title: const Text('重命名'),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        _renameConversation(index);
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.delete, color: Colors.red),
+                                      title: const Text('删除', style: TextStyle(color: Colors.red)),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        _deleteConversation(index);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: _createNewConversation,
+        tooltip: '新建对话',
         child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime dt) {
-    final now = DateTime.now();
-    if (now.difference(dt).inDays == 0) {
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    }
-    return '${dt.month}/${dt.day}';
-  }
-
-  void _confirmDelete(Conversation conv) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('删除对话'),
-        content: Text('确定要删除"${conv.title}"吗？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          TextButton(
-            onPressed: () {
-              _engine.deleteConversation(conv.id);
-              _loadConversations();
-              Navigator.pop(context);
-            },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
       ),
     );
   }

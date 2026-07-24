@@ -1,5 +1,5 @@
 // ============================================================================
-// 小酥 - 聊天界面（Agent完整版）
+// 小酥 - 聊天界面（Agent完整版）- 修复消息重复问题
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -30,12 +30,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final Set<String> _streamingMessages = {};
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  
+  // 当前streaming的助手消息ID，用于精确替换
+  String? _currentAssistantMsgId;
 
   @override
   void initState() {
     super.initState();
-    _engine.setActiveConversation(widget.conversationId);
-    _messages.addAll(_engine.getHistory(widget.conversationId));
+    final convId = widget.conversationId.isEmpty 
+        ? 'conv_${DateTime.now().millisecondsSinceEpoch}'
+        : widget.conversationId;
+    _engine.setActiveConversation(convId);
+    _messages.addAll(_engine.getHistory(convId));
   }
 
   @override
@@ -56,71 +62,75 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
-  Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
+  Future<void> _sendMessage(String text, {List<String>? filePaths}) async {
+    if (text.trim().isEmpty && (filePaths == null || filePaths.isEmpty)) return;
     setState(() => _isLoading = true);
 
-    // 添加用户消息到本地
+    // 生成统一的对话ID
+    final convId = widget.conversationId.isEmpty 
+        ? 'conv_${DateTime.now().millisecondsSinceEpoch}'
+        : widget.conversationId;
+
+    // 只添加用户消息到本地列表（引擎内部也会添加到history）
     final userMsg = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      conversationId: widget.conversationId,
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: convId,
       content: text,
       role: MessageRole.user,
       timestamp: DateTime.now(),
+      attachments: filePaths != null && filePaths.isNotEmpty
+          ? filePaths.map((p) => MessageAttachment(
+              id: 'att_${DateTime.now().millisecondsSinceEpoch}',
+              type: p.endsWith('.mp4') ? 'video' : (p.endsWith('.jpg') || p.endsWith('.png') ? 'image' : 'file'),
+              url: p,
+            )).toList()
+          : null,
     );
+    
     setState(() {
       _messages.add(userMsg);
     });
     _scrollToBottom();
 
     try {
-      // 创建助手消息占位
-      final assistantMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
-      final assistantMsg = ChatMessage(
-        id: assistantMsgId,
-        conversationId: widget.conversationId,
-        content: '',
-        role: MessageRole.assistant,
-        timestamp: DateTime.now(),
-        status: MessageStatus.streaming,
-      );
-      setState(() {
-        _messages.add(assistantMsg);
-        _streamingMessages.add(assistantMsgId);
-      });
-      _scrollToBottom();
+      // 重置当前助手消息追踪
+      _currentAssistantMsgId = null;
+      final streamingMsgIds = <String>{};
 
-      // 使用流式响应
+      // 使用流式响应 - 引擎会yield所有消息
       await for (final msg in _engine.sendMessageStream(
-        conversationId: widget.conversationId,
+        conversationId: convId,
         content: text,
+        filePaths: filePaths,
       )) {
+        // 跳过用户消息（已经在本地添加了）
         if (msg.role == MessageRole.user) continue;
 
-        // 获取Agent消息
-        final agentMsgs = _engine.getAgentMessages(msg.id);
-
         setState(() {
-          // 更新或替换消息
-          final existingIdx = _messages.indexWhere((m) => m.id == msg.id);
-          if (existingIdx >= 0) {
-            _messages[existingIdx] = msg;
-          } else {
-            // 替换最后一条助手消息
-            if (_messages.isNotEmpty && _messages.last.role == MessageRole.assistant) {
-              _messages[_messages.length - 1] = msg;
-            }
-          }
-
-          // 更新Agent消息缓存
+          // 获取Agent消息
+          final agentMsgs = _engine.getAgentMessages(msg.id);
           if (agentMsgs.isNotEmpty) {
             _agentMessageMap[msg.id] = agentMsgs;
           }
 
-          // 如果完成，移除streaming标记
-          if (msg.status == MessageStatus.completed ||
-              msg.status == MessageStatus.error) {
+          // 查找是否已存在此ID的消息
+          final existingIdx = _messages.indexWhere((m) => m.id == msg.id);
+          if (existingIdx >= 0) {
+            // 替换已有消息（streaming更新）
+            _messages[existingIdx] = msg;
+          } else {
+            // 新消息 - 添加到列表
+            _messages.add(msg);
+            streamingMsgIds.add(msg.id);
+            _currentAssistantMsgId = msg.id;
+          }
+
+          // 更新streaming状态
+          if (msg.status == MessageStatus.streaming) {
+            _streamingMessages.add(msg.id);
+          } else {
             _streamingMessages.remove(msg.id);
+            streamingMsgIds.remove(msg.id);
           }
         });
         _scrollToBottom();
@@ -128,8 +138,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } catch (e) {
       setState(() {
         _messages.add(ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          conversationId: widget.conversationId,
+          id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+          conversationId: convId,
           content: '⚠️ 发送失败: $e',
           role: MessageRole.assistant,
           timestamp: DateTime.now(),
@@ -137,7 +147,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ));
       });
     } finally {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _currentAssistantMsgId = null;
+      });
       _scrollToBottom();
     }
   }
@@ -201,7 +214,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
           ),
           // 输入框
-          ChatInput(onSend: _sendMessage, isLoading: _isLoading),
+          ChatInput(
+            onSend: _sendMessage,
+            isLoading: _isLoading,
+          ),
         ],
       ),
     );
@@ -234,7 +250,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ],
           ),
           const SizedBox(height: 16),
-          // Agent模式标识
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -278,7 +293,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               title: const Text('清空对话'),
               onTap: () {
                 Navigator.pop(context);
-                _engine.clearHistory(widget.conversationId);
+                final convId = widget.conversationId.isEmpty 
+                    ? 'conv_${DateTime.now().millisecondsSinceEpoch}'
+                    : widget.conversationId;
+                _engine.clearHistory(convId);
                 setState(() {
                   _messages.clear();
                   _agentMessageMap.clear();
@@ -305,7 +323,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               title: const Text('设置'),
               onTap: () {
                 Navigator.pop(context);
-                context.pushNamed('settings-full');
+                // 使用路径导航，避免命名路由冲突
+                context.push('/settings');
               },
             ),
           ],
