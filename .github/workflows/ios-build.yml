@@ -21,11 +21,14 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Clean iOS build cache
-        run: flutter clean
-
-      - name: Re-fetch dependencies after clean
-        run: flutter pub get
+      - name: Prepare iOS build
+        run: |
+          # Remove stale generated files that will be regenerated
+          rm -f ios/Flutter/Generated.xcconfig
+          rm -f ios/Flutter/flutter_export_environment.sh
+          rm -rf ios/.symlinks
+          # Re-run pub get to regenerate
+          flutter pub get
 
       - name: Build iOS (unsigned)
         run: |
