@@ -45,16 +45,16 @@ class LlmRouter {
 
   /// 初始化路由器
   void initialize({String? defaultModel}) {
-    // 注册默认模型
+    // 注册默认模型（DeepSeek 直连）
     registerModel(ModelConfig(
-      id: 'deepseek-v4-flash',
-      name: 'DeepSeek V4 Flash（阿里云）',
+      id: 'deepseek-chat',
+      name: 'DeepSeek V3（直连）',
       provider: AliyunDeepSeekProvider.instance,
       maxComplexity: TaskComplexity.complex,
-      contextWindow: 32768,
+      contextWindow: 65536,
     ));
 
-    _defaultModelId = defaultModel ?? 'deepseek-v4-flash';
+    _defaultModelId = defaultModel ?? 'deepseek-chat';
   }
 
   /// 注册模型
@@ -96,7 +96,7 @@ class LlmRouter {
   BaseLlmProvider get defaultProvider {
     final config = _models[_defaultModelId];
     if (config != null) return config.provider;
-    // 回退到阿里云DeepSeek
+    // 回退到 DeepSeek
     return AliyunDeepSeekProvider.instance;
   }
 

@@ -15,15 +15,20 @@ import 'package:go_router/go_router.dart';
 import 'package:xiaosu/ui/theme/app_theme.dart';
 import 'package:xiaosu/ui/pages/error_page.dart';
 
-// ─── 真实实现页面（presentation 层）──────────────────────────
+// ─── Shell 布局 ─────────────────────────────────────────────
+import 'package:xiaosu/presentation/shell/shell_screen.dart';
+
+// ─── 主 Tab 页面 ─────────────────────────────────────────────
 import 'package:xiaosu/presentation/chat/session_list_screen.dart';
-import 'package:xiaosu/presentation/chat/chat_screen.dart';
-import 'package:xiaosu/presentation/settings/settings_screen.dart';
-import 'package:xiaosu/presentation/settings/model_settings_screen.dart';
 import 'package:xiaosu/presentation/settings/skill_manager_screen.dart';
 import 'package:xiaosu/presentation/dashboard/dashboard_screen.dart';
-import 'package:xiaosu/presentation/plugin_store/plugin_store_screen.dart';
 import 'package:xiaosu/presentation/monitor/monitor_dashboard.dart';
+import 'package:xiaosu/presentation/settings/settings_screen.dart';
+
+// ─── 子页面（从 Tab 页进入，需要返回按钮）───────────────────
+import 'package:xiaosu/presentation/chat/chat_screen.dart';
+import 'package:xiaosu/presentation/settings/model_settings_screen.dart';
+import 'package:xiaosu/presentation/plugin_store/plugin_store_screen.dart';
 import 'package:xiaosu/presentation/workflow_editor/workflow_editor_screen.dart';
 
 /// ============================================================================
@@ -75,12 +80,66 @@ class XiaoSuApp extends ConsumerWidget {
 
       // ─── 路由表定义 ─────────────────────────────────────────
       routes: [
-        // 首页 —— 会话列表 / 主入口
-        GoRoute(
-          path: '/',
-          name: 'home',
-          builder: (context, state) => const SessionListScreen(),
+        // ===== ShellRoute：底部导航栏包裹的 5 个主 Tab =====
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) {
+            return ShellScreen(navigationShell: navigationShell);
+          },
+          branches: [
+            // Tab 1: 对话（会话列表）
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  name: 'home',
+                  builder: (context, state) => const SessionListScreen(),
+                ),
+              ],
+            ),
+            // Tab 2: 技能
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/skills',
+                  name: 'skills',
+                  builder: (context, state) => const SkillManagerScreen(),
+                ),
+              ],
+            ),
+            // Tab 3: 任务（仪表盘）
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/tasks',
+                  name: 'tasks',
+                  builder: (context, state) => const DashboardScreen(),
+                ),
+              ],
+            ),
+            // Tab 4: 监控
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/monitor',
+                  name: 'monitor',
+                  builder: (context, state) => const MonitorDashboard(),
+                ),
+              ],
+            ),
+            // Tab 5: 设置
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/settings',
+                  name: 'settings',
+                  builder: (context, state) => const SettingsScreen(),
+                ),
+              ],
+            ),
+          ],
         ),
+
+        // ===== 子页面（Shell 外，有返回按钮）=====
 
         // 对话页 —— 与 AI 进行实时对话（完整版）
         GoRoute(
@@ -97,27 +156,6 @@ class XiaoSuApp extends ConsumerWidget {
           path: '/chat-new',
           name: 'chat-new',
           builder: (context, state) => const ChatScreen(conversationId: ''),
-        ),
-
-        // 技能管理页（完整版）
-        GoRoute(
-          path: '/skills',
-          name: 'skills',
-          builder: (context, state) => const SkillManagerScreen(),
-        ),
-
-        // 任务页 —— 仪表盘
-        GoRoute(
-          path: '/tasks',
-          name: 'tasks',
-          builder: (context, state) => const DashboardScreen(),
-        ),
-
-        // 设置页（完整版）
-        GoRoute(
-          path: '/settings',
-          name: 'settings',
-          builder: (context, state) => const SettingsScreen(),
         ),
 
         // 模型设置
@@ -139,13 +177,6 @@ class XiaoSuApp extends ConsumerWidget {
           path: '/plugins',
           name: 'plugins',
           builder: (context, state) => const PluginStoreScreen(),
-        ),
-
-        // 监控面板
-        GoRoute(
-          path: '/monitor',
-          name: 'monitor',
-          builder: (context, state) => const MonitorDashboard(),
         ),
       ],
     );

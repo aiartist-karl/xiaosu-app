@@ -1,5 +1,5 @@
 // ============================================================================
-// 小酥 - LLM Provider 基础接口 + 阿里云DeepSeek集成
+// 小酥 - LLM Provider 基础接口 + DeepSeek直连集成
 // ============================================================================
 
 import 'dart:async';
@@ -76,7 +76,7 @@ abstract class BaseLlmProvider {
   Future<void> dispose() async {}
 }
 
-/// 阿里云 DeepSeek Provider（默认）
+/// DeepSeek Provider（直连）
 class AliyunDeepSeekProvider extends BaseLlmProvider {
   static final AliyunDeepSeekProvider instance = AliyunDeepSeekProvider._();
   AliyunDeepSeekProvider._();
@@ -84,14 +84,14 @@ class AliyunDeepSeekProvider extends BaseLlmProvider {
   final http.Client _client = http.Client();
 
   @override
-  String get providerId => 'aliyun-deepseek';
+  String get providerId => 'deepseek';
 
   @override
   String get modelId => AppConfig.llmModel;
 
   String get _endpoint => AppConfig.llmEndpoint;
 
-  String get _apiKey => AppConfig.deepseekApiKey;
+  String get _apiKey => AppConfig.llmApiKey;
 
   @override
   Future<LLMCompletionResult> complete({

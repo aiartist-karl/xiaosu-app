@@ -1,22 +1,21 @@
 /// 小酥APP API配置
-/// 默认连接阿里云服务器
+/// 直连 DeepSeek API
 class AppConfig {
-  // 阿里云后端服务器
-  static const String serverHost = 'http://47.116.29.140:5001';
-  
-  // LLM API配置
-  static const String llmEndpoint = '$serverHost/v1/chat/completions';
-  static const String llmModel = 'deepseek-v4-flash';
-  static const String llmApiKey = ''; // 服务端已配置，客户端无需key
-  
-  // 用户认证
-  static const String authEndpoint = '$serverHost/auth';
-  
-  // 云同步
-  static const String syncEndpoint = '$serverHost/sync';
-  
-  // 备用：直连DeepSeek（如果阿里云不可用）
-  static const String deepseekEndpoint = 'https://api.deepseek.com/v1/chat/completions';
-  static const String deepseekApiKey = 'YOUR_DEEPSEEK_API_KEY';
-  static const String deepseekModel = 'deepseek-v4-flash';
+  // DeepSeek API 直连
+  static const String apiBase = 'https://api.deepseek.com';
+  static const String llmEndpoint = '$apiBase/v1/chat/completions';
+  static const String llmModel = 'deepseek-chat';
+  static const String llmApiKey = 'sk-c8ab23705bf7457e888a2abafc9ec3ae';
+
+  // 向后兼容别名（供 llm_provider.dart 等旧代码使用）
+  static const String deepseekEndpoint = llmEndpoint;
+  static const String deepseekApiKey = llmApiKey;
+  static const String deepseekModel = llmModel;
+
+  // ApiGateway 默认 base
+  static const String serverHost = apiBase;
+
+  // 用户认证 / 云同步（直连模式下暂不可用，保留字段）
+  static const String authEndpoint = '$apiBase/auth';
+  static const String syncEndpoint = '$apiBase/sync';
 }

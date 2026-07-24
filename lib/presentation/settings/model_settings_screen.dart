@@ -41,7 +41,7 @@ class _ModelSettingsScreenState extends State<ModelSettingsScreen> {
               subtitle: Text('上下文窗口: ${m.contextWindow}'),
               trailing: Radio<String>(
                 value: m.id,
-                groupValue: 'deepseek-v4-flash',
+                groupValue: 'deepseek-chat',
                 onChanged: (v) {
                   _router.setDefaultModel(v!);
                   setState(() {});

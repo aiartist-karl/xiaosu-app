@@ -40,7 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text('默认模型'),
               subtitle: Text(_selectedModel),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.goNamed('model-settings'),
+              onTap: () => context.pushNamed('model-settings'),
             ),
           ]),
           _buildSection('记忆', [
@@ -66,13 +66,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.extension),
               title: const Text('技能管理'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.goNamed('skill-manager'),
+              onTap: () => context.go('/skills'),
             ),
             ListTile(
               leading: const Icon(Icons.store),
               title: const Text('插件商店'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.goNamed('plugins'),
+              onTap: () => context.pushNamed('plugins'),
             ),
           ]),
           _buildSection('高级', [
@@ -80,13 +80,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.monitor_heart),
               title: const Text('性能监控'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.goNamed('monitor'),
+              onTap: () => context.go('/monitor'),
             ),
             ListTile(
               leading: const Icon(Icons.work_outline),
               title: const Text('工作流编辑器'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.goNamed('workflow'),
+              onTap: () => context.pushNamed('workflow'),
             ),
           ]),
           _buildSection('关于', [

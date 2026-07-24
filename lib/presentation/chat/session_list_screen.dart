@@ -51,7 +51,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     _engine.setActiveConversation(id);
     if (mounted) {
-      context.goNamed('chat', pathParameters: {'conversationId': id});
+      context.pushNamed('chat', pathParameters: {'conversationId': id});
     }
   }
 
@@ -93,7 +93,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                       _formatDate(conv.updatedAt),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    onTap: () => context.goNamed('chat', pathParameters: {'conversationId': conv.id}),
+                    onTap: () => context.pushNamed('chat', pathParameters: {'conversationId': conv.id}),
                     onLongPress: () => _confirmDelete(conv),
                   ),
                 );
