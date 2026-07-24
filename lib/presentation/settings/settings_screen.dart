@@ -22,7 +22,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _darkMode = false;
   bool _enableMemory = true;
   bool _enableVoice = false;
-  String _selectedModel = 'DeepSeek V4 Flash';
+  String _selectedModel = 'DeepSeek V4 Pro';
   bool _isInitialized = false;
 
   @override
@@ -159,3 +159,4 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
+

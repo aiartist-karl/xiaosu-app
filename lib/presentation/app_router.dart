@@ -1,93 +1,76 @@
-// ============================================================================
-// 小酥 - 应用路由管理
-// ============================================================================
-
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../ui/pages/home_page.dart';
-import '../ui/pages/chat_page.dart';
-import '../ui/pages/settings_page.dart';
-import '../ui/pages/skills_page.dart';
-import '../ui/pages/tasks_page.dart';
-import '../ui/pages/error_page.dart';
 import 'chat/chat_screen.dart';
 import 'settings/settings_screen.dart';
-import 'settings/model_settings_screen.dart';
-import 'settings/skill_manager_screen.dart';
-import 'chat/session_list_screen.dart';
-import 'workflow_editor/workflow_editor_screen.dart';
 import 'dashboard/dashboard_screen.dart';
-import 'plugin_store/plugin_store_screen.dart';
-import 'monitor/monitor_dashboard.dart';
-import 'agents/agents_screen.dart';
-import 'agents/agent_task_screen.dart';
-import 'files/file_manager_screen.dart';
 import 'tools/tools_screen.dart';
-import 'projects/projects_screen.dart';
-import 'projects/project_detail_screen.dart';
-import 'projects/project_editor_screen.dart';
+import 'agents/agents_screen.dart';
+import 'files/file_manager_screen.dart';
 
-/// 应用路由管理
 class AppRouter {
-  /// 创建GoRouter实例
-  static GoRouter createRouter() {
-    return GoRouter(
-      initialLocation: '/',
-      errorBuilder: (context, state) => ErrorPage(
-        error: state.error,
-        path: state.uri.toString(),
-      ),
-      routes: [
-        GoRoute(path: '/', name: 'home', builder: (_, __) => const HomePage()),
-        GoRoute(
-          path: '/chat/:conversationId',
-          name: 'chat',
-          builder: (_, state) {
-            final id = state.pathParameters['conversationId']!;
-            return ChatPage(conversationId: id);
-          },
-        ),
-        GoRoute(path: '/chat-new', name: 'chat-new', builder: (_, __) => const ChatScreen(conversationId: '')),
-        GoRoute(path: '/sessions', name: 'sessions', builder: (_, __) => const SessionListScreen()),
-        GoRoute(path: '/skills', name: 'skills', builder: (_, __) => const SkillsPage()),
-        GoRoute(path: '/skill-manager', name: 'skill-manager', builder: (_, __) => const SkillManagerScreen()),
-        GoRoute(path: '/tasks', name: 'tasks', builder: (_, __) => const TasksPage()),
-        GoRoute(path: '/settings', name: 'settings', builder: (_, __) => const SettingsPage()),
-        GoRoute(path: '/settings/full', name: 'settings-full', builder: (_, __) => const SettingsScreen()),
-        GoRoute(path: '/settings/model', name: 'model-settings', builder: (_, __) => const ModelSettingsScreen()),
-        GoRoute(path: '/workflow', name: 'workflow', builder: (_, __) => const WorkflowEditorScreen()),
-        GoRoute(path: '/dashboard', name: 'dashboard', builder: (_, __) => const DashboardScreen()),
-        GoRoute(path: '/plugins', name: 'plugins', builder: (_, __) => const PluginStoreScreen()),
-        GoRoute(path: '/monitor', name: 'monitor', builder: (_, __) => const MonitorDashboard()),
-        GoRoute(path: '/agents', name: 'agents', builder: (_, __) => const AgentsScreen()),
-        GoRoute(
-          path: '/agent-task/:agentId',
-          name: 'agent-task',
-          builder: (_, state) {
-            final id = state.pathParameters['agentId']!;
-            return AgentTaskScreen(agentId: id);
-          },
-        ),
-        GoRoute(path: '/files', name: 'files', builder: (_, __) => const FileManagerScreen()),
-        GoRoute(path: '/tools', name: 'tools', builder: (_, __) => const ToolsScreen()),
-        GoRoute(path: '/projects', name: 'projects', builder: (_, __) => const ProjectsScreen()),
-        GoRoute(
-          path: '/project/:projectId',
-          name: 'project-detail',
-          builder: (_, state) {
-            final id = state.pathParameters['projectId']!;
-            return ProjectDetailScreen(projectId: id);
-          },
-        ),
-        GoRoute(
-          path: '/project/:projectId/editor',
-          name: 'project-editor',
-          builder: (_, state) {
-            final id = state.pathParameters['projectId']!;
-            return ProjectEditorScreen(projectId: id);
-          },
-        ),
-      ],
-    );
+  static const String home = '/';
+  static const String chat = '/chat';
+  static const String settings = '/settings';
+  static const String dashboard = '/dashboard';
+  static const String tools = '/tools';
+  static const String agents = '/agents';
+  static const String files = '/files';
+
+  static Route<dynamic> generateRoute(RouteSettings settings) {
+    switch (settings.name) {
+      case home:
+      case chat:
+        return MaterialPageRoute(
+          builder: (_) => const ChatScreen(),
+          settings: settings,
+        );
+      case settings:
+        return MaterialPageRoute(
+          builder: (_) => const SettingsScreen(),
+          settings: settings,
+        );
+      case dashboard:
+        return MaterialPageRoute(
+          builder: (_) => const DashboardScreen(),
+          settings: settings,
+        );
+      case tools:
+        return MaterialPageRoute(
+          builder: (_) => const ToolsScreen(),
+          settings: settings,
+        );
+      case agents:
+        return MaterialPageRoute(
+          builder: (_) => const AgentsScreen(),
+          settings: settings,
+        );
+      case files:
+        return MaterialPageRoute(
+          builder: (_) => const FileManagerScreen(),
+          settings: settings,
+        );
+      default:
+        return MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(title: const Text('页面未找到')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.orange),
+                  const SizedBox(height: 16),
+                  Text('路径: ${settings.name}', style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                    icon: const Icon(Icons.home),
+                    label: const Text('返回首页'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          settings: settings,
+        );
+    }
   }
 }

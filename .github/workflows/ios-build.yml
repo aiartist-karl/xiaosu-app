@@ -5,6 +5,9 @@ on:
     branches: [main, master, develop]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-ios:
     runs-on: macos-latest
@@ -26,10 +29,16 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign --no-tree-shake-icons
+      - name: Build iOS (no codesign, no SPM)
+        run: |
+          cd ios
+          # 禁用 Swift Package Manager，使用 CocoaPods
+          sed -i.bak 's/\.buildFramework/# .buildFramework/' Podfile 2>/dev/null || true
+          cd ..
+          flutter build ios --release --no-codesign --no-tree-shake-icons --verbose 2>&1 | tail -50
 
       - name: Package IPA
+        if: success()
         run: |
           mkdir -p payload
           cp -r build/ios/iphoneos/Runner.app payload/
@@ -48,9 +57,8 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.6.0
+          tag_name: v2.7.0
           files: xiaosu-ios-unsigned.ipa
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload build logs on failure
         uses: actions/upload-artifact@v4
