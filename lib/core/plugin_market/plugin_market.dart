@@ -3,11 +3,11 @@
 // ============================================================================
 
 import 'dart:convert';
-import 'package:http/http.dart' as http';
+import 'package:http/http.dart' as http;
 import '../skill/skill.dart';
 import '../skill/skill_registry.dart';
 import '../services/agent_api_service.dart';
-import '../config/app_config.dart';
+import '../../config/app_config.dart';
 
 /// 插件信息
 class PluginInfo {
