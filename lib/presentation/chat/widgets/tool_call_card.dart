@@ -113,8 +113,9 @@ class _ToolCallCardState extends State<ToolCallCard>
     return InkWell(
       onTap: widget.onTap ?? _toggleExpand,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
-      child: Row(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+        child: Row(
         children: [
           // 工具图标
           Container(
@@ -170,6 +171,7 @@ class _ToolCallCardState extends State<ToolCallCard>
               ),
             ),
         ],
+      ),
       ),
     );
   }

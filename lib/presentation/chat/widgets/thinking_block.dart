@@ -88,40 +88,42 @@ class _ThinkingBlockState extends State<ThinkingBlock>
           InkWell(
             onTap: _toggle,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            child: Row(
-              children: [
-                // 思考图标动画
-                _ThinkingDots(isAnimating: !_isExpanded),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '💭 思考过程',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.amber[300] : Colors.amber[800],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              child: Row(
+                children: [
+                  // 思考图标动画
+                  _ThinkingDots(isAnimating: !_isExpanded),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '💭 思考过程',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.amber[300] : Colors.amber[800],
+                      ),
                     ),
                   ),
-                ),
-                // 内容长度
-                Text(
-                  '${thinkingContent.length}字',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark ? Colors.white38 : Colors.grey,
+                  // 内容长度
+                  Text(
+                    '${thinkingContent.length}字',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? Colors.white38 : Colors.grey,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                RotationTransition(
-                  turns: _heightAnimation.drive(Tween(begin: 0.0, end: 0.5)),
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    color: isDark ? Colors.amber[300] : Colors.amber[700],
-                    size: 20,
+                  const SizedBox(width: 4),
+                  RotationTransition(
+                    turns: _heightAnimation.drive(Tween(begin: 0.0, end: 0.5)),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: isDark ? Colors.amber[300] : Colors.amber[700],
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           // 折叠内容
@@ -174,8 +176,13 @@ class _ThinkingDotsState extends State<_ThinkingDots>
   }
 
   @override
-  void didUpdateWidget(ThinkingBlock oldWidget) {
+  void didUpdateWidget(_ThinkingDots oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.isAnimating && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isAnimating && _controller.isAnimating) {
+      _controller.stop();
+    }
   }
 
   @override
