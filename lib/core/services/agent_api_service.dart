@@ -32,6 +32,7 @@ class AgentApiService {
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
       'Cache-Control': 'no-cache',
+      'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
     });
     request.body = jsonEncode(body);
 
@@ -106,7 +107,8 @@ class AgentApiService {
   Future<bool> healthCheck() async {
     try {
       final response = await _client
-          .get(Uri.parse('${AppConfig.agentApiBase}/health'))
+          .get(Uri.parse('${AppConfig.agentApiBase}/health'),
+              headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'})
           .timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (_) {
