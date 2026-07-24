@@ -1,6 +1,9 @@
 /// 小酥APP API配置
 /// 后端Agent服务 + 兼容直连模式
 class AppConfig {
+  // ==================== Agent模式开关 ====================
+  static const bool useAgentMode = true;
+
   // ==================== 后端Agent服务（通过nginx代理） ====================
   static const String agentApiBase = 'http://47.116.29.140/agent';
   static const String agentChatEndpoint = '$agentApiBase/api/chat';
