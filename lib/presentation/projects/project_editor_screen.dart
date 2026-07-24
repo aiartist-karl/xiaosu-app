@@ -1,14 +1,15 @@
 // ============================================================================
-// 小酥 - 项目编辑器
+// 小酥 - 项目编辑器（对接后端真实数据）
 // ============================================================================
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../core/gateway/api_gateway.dart';
+import 'package:http/http.dart' as http;
 import '../../config/app_config.dart';
 
-/// 项目编辑器 - 简易代码编辑器
 class ProjectEditorScreen extends StatefulWidget {
   final String projectId;
+
   const ProjectEditorScreen({super.key, required this.projectId});
 
   @override
@@ -16,306 +17,168 @@ class ProjectEditorScreen extends StatefulWidget {
 }
 
 class _ProjectEditorScreenState extends State<ProjectEditorScreen> {
-  final ApiGateway _api = ApiGateway.instance;
-  final TextEditingController _codeCtrl = TextEditingController();
-  String _currentFile = '';
-  bool _hasChanges = false;
-  bool _isSaving = false;
-
-  // 模拟文件列表
-  final List<Map<String, String>> _files = [
-    {'name': 'main.js', 'path': 'src/main.js'},
-    {'name': 'app.css', 'path': 'src/app.css'},
-    {'name': 'index.html', 'path': 'src/index.html'},
-    {'name': 'package.json', 'path': 'package.json'},
-  ];
-
-  // 模拟文件内容
-  final Map<String, String> _fileContents = {
-    'src/main.js': '''import { createApp } from './app.js';
-import { initRouter } from './router.js';
-
-// 应用入口
-const app = createApp({
-  data() {
-    return {
-      title: '小酥工程项目',
-      version: '1.0.0'
-    };
-  }
-});
-
-// 初始化路由
-initRouter(app);
-
-// 启动应用
-app.mount('#app');
-console.log('应用已启动');
-''',
-    'src/app.css': '''/* 全局样式 */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f5f5;
-  color: #333;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-''',
-    'src/index.html': '''<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>小酥工程项目</title>
-  <link rel="stylesheet" href="app.css">
-</head>
-<body>
-  <div id="app">
-    <h1>欢迎使用小酥工程项目</h1>
-  </div>
-  <script type="module" src="main.js"></script>
-</body>
-</html>
-''',
-    'package.json': '''{
-  "name": "xiaosu-project",
-  "version": "1.0.0",
-  "description": "小酥工程项目",
-  "main": "src/main.js",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {},
-  "devDependencies": {}
-}
-''',
-  };
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
+  final TextEditingController _promptController = TextEditingController();
+  bool _loading = true;
+  bool _saving = false;
+  Map<String, dynamic> _config = {};
 
   @override
   void initState() {
     super.initState();
-    if (_files.isNotEmpty) {
-      _loadFile(_files.first['path']!);
-    }
+    _loadProject();
   }
 
   @override
   void dispose() {
-    _codeCtrl.dispose();
+    _nameController.dispose();
+    _descController.dispose();
+    _promptController.dispose();
     super.dispose();
   }
 
-  void _loadFile(String path) {
-    setState(() {
-      _currentFile = path;
-      _codeCtrl.text = _fileContents[path] ?? '// 空文件';
-      _hasChanges = false;
-    });
+  Future<void> _loadProject() async {
+    setState(() { _loading = true; });
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.agentApiBase}/api/projects/${widget.projectId}'),
+        headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        setState(() {
+          _config = data;
+          _nameController.text = data['name']?.toString() ?? '';
+          _descController.text = data['description']?.toString() ?? '';
+          _promptController.text = data['system_prompt']?.toString() ?? '';
+          _loading = false;
+        });
+      } else {
+        setState(() { _loading = false; });
+      }
+    } catch (e) {
+      setState(() { _loading = false; });
+    }
   }
 
-  Future<void> _saveFile() async {
-    if (!_hasChanges) return;
-
-    setState(() => _isSaving = true);
-
+  Future<void> _saveProject() async {
+    setState(() { _saving = true; });
     try {
-      await _api.post(
-        '/api/projects/${widget.projectId}/file',
-        body: {
-          'path': _currentFile,
-          'content': _codeCtrl.text,
+      final response = await http.put(
+        Uri.parse('${AppConfig.agentApiBase}/api/projects/${widget.projectId}'),
+        headers: {
+          'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
+          'Content-Type': 'application/json',
         },
-        headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'},
-      );
-
-      // 更新本地缓存
-      _fileContents[_currentFile] = _codeCtrl.text;
-
-      setState(() => _hasChanges = false);
+        body: jsonEncode({
+          'name': _nameController.text,
+          'description': _descController.text,
+          'system_prompt': _promptController.text,
+        }),
+      ).timeout(const Duration(seconds: 10));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ 已保存: $_currentFile'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
+          SnackBar(content: Text(response.statusCode == 200 ? '保存成功' : '保存失败: HTTP ${response.statusCode}')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失败: ${e.toString()}')));
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() { _saving = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('项目编辑器'),
-        centerTitle: true,
+        title: const Text('编辑项目'),
         actions: [
-          if (_hasChanges)
-            TextButton.icon(
-              onPressed: _isSaving ? null : _saveFile,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save, size: 18),
-              label: Text(_isSaving ? '保存中...' : '保存'),
-            ),
+          TextButton(
+            onPressed: _saving ? null : _saveProject,
+            child: _saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('保存', style: TextStyle(fontSize: 16)),
+          ),
         ],
       ),
-      body: Row(
-        children: [
-          // 左侧文件树
-          Container(
-            width: 180,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              border: Border(right: BorderSide(color: Colors.grey.shade300)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    '文件',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _files.length,
-                    itemBuilder: (context, index) {
-                      final file = _files[index];
-                      final isSelected = _currentFile == file['path'];
-                      return ListTile(
-                        dense: true,
-                        selected: isSelected,
-                        selectedTileColor: Colors.blue.withOpacity(0.1),
-                        leading: Icon(
-                          _fileIcon(file['name']!),
-                          size: 16,
-                          color: isSelected ? Colors.blue : Colors.grey,
-                        ),
-                        title: Text(
-                          file['name']!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                          ),
-                        ),
-                        onTap: () => _loadFile(file['path']!),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+                // 项目名称
+                _buildSection('项目名称', TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(hintText: '输入项目名称', border: OutlineInputBorder()),
+                )),
+                const SizedBox(height: 20),
 
-          // 右侧编辑区
-          Expanded(
-            child: Column(
-              children: [
-                // 文件路径栏
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.insert_drive_file, size: 14, color: Colors.grey.shade600),
-                      const SizedBox(width: 6),
-                      Text(
-                        _currentFile,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (_hasChanges)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.orange,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                // 代码编辑区
-                Expanded(
-                  child: TextField(
-                    controller: _codeCtrl,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      height: 1.5,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(12),
-                      filled: true,
-                      fillColor: Color(0xFF1E1E1E),
-                    ),
-                    onChanged: (_) {
-                      if (!_hasChanges) {
-                        setState(() => _hasChanges = true);
-                      }
-                    },
+                // 项目描述
+                _buildSection('项目描述', TextField(
+                  controller: _descController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(hintText: '描述项目目标和功能', border: OutlineInputBorder()),
+                )),
+                const SizedBox(height: 20),
+
+                // 系统提示词
+                _buildSection('AI系统提示词', TextField(
+                  controller: _promptController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(hintText: '设置AI在此项目中的行为...', border: OutlineInputBorder()),
+                )),
+                const SizedBox(height: 20),
+
+                // 模型选择
+                _buildSection('模型配置', DropdownButtonFormField<String>(
+                  value: _config['model']?.toString() ?? 'deepseek-chat',
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'deepseek-chat', child: Text('DeepSeek Chat')),
+                    DropdownMenuItem(value: 'deepseek-reasoner', child: Text('DeepSeek Reasoner')),
+                    DropdownMenuItem(value: 'gpt-4', child: Text('GPT-4')),
+                  ],
+                  onChanged: (v) { if (v != null) setState(() { _config['model'] = v; }); },
+                )),
+                const SizedBox(height: 20),
+
+                // 删除项目
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _confirmDelete(context),
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    label: const Text('删除项目', style: TextStyle(color: Colors.red)),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red)),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
-  IconData _fileIcon(String name) {
-    if (name.endsWith('.js') || name.endsWith('.ts')) return Icons.javascript;
-    if (name.endsWith('.css')) return Icons.style;
-    if (name.endsWith('.html')) return Icons.html;
-    if (name.endsWith('.json')) return Icons.data_object;
-    if (name.endsWith('.dart')) return Icons.code;
-    if (name.endsWith('.py')) return Icons.code;
-    return Icons.insert_drive_file;
+  Widget _buildSection(String title, Widget child) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 8),
+      child,
+    ]);
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('确认删除'),
+      content: const Text('删除后无法恢复，确定要删除吗？'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+        TextButton(onPressed: () { Navigator.pop(ctx); }, child: const Text('删除', style: TextStyle(color: Colors.red))),
+      ],
+    ));
   }
 }

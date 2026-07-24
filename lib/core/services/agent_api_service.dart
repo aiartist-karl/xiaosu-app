@@ -1,5 +1,5 @@
 // ============================================================================
-// 小酥 - Agent API 服务（SSE流式通信）- 防重复修复版
+// 小酥 - Agent API 服务（SSE流式通信）- 彻底重写版
 // ============================================================================
 
 import 'dart:async';
@@ -82,10 +82,9 @@ class AgentApiService {
         return;
       }
 
-      // 解析SSE流（修复：基于内容去重）
+      // 解析SSE流 - 正确解析 event: 和 data: 行
       String buffer = '';
-      final Set<String> processedContentHashes = {};
-      String lastContent = '';
+      String currentEventType = '';
       
       await for (final chunk in response.stream
           .transform(utf8.decoder)
@@ -95,13 +94,24 @@ class AgentApiService {
         buffer += chunk;
         
         final lines = buffer.split('\n');
-        // 最后一行可能不完整，保留到下次处理
         buffer = lines.removeLast();
         
         for (final line in lines) {
           final trimmed = line.trim();
-          if (trimmed.isEmpty) continue;
           
+          // SSE事件边界（空行）
+          if (trimmed.isEmpty) {
+            currentEventType = '';
+            continue;
+          }
+          
+          // 解析 event: 行 - 获取真实的事件类型
+          if (trimmed.startsWith('event:')) {
+            currentEventType = trimmed.substring(6).trim();
+            continue;
+          }
+          
+          // 解析 data: 行
           if (trimmed.startsWith('data:')) {
             final dataStr = trimmed.substring(5).trim();
             
@@ -116,28 +126,118 @@ class AgentApiService {
             }
             
             try {
-              final json = jsonDecode(dataStr) as Map<String, dynamic>;
-              final msg = AgentMessage.fromSSE(json);
-              
-              // 基于内容去重：跳过完全相同的text_delta
-              if (msg.type.name == 'text_delta' && msg.content.isNotEmpty) {
-                final contentHash = msg.content.hashCode.toString();
-                if (processedContentHashes.contains(contentHash)) {
-                  continue; // 跳过重复内容
-                }
-                processedContentHashes.add(contentHash);
-                lastContent = msg.content;
+              final jsonData = jsonDecode(dataStr) as Map<String, dynamic>;
+              final msg = _createMessage(currentEventType, jsonData);
+              if (msg != null) {
+                yield msg;
               }
-              
-              yield msg;
             } catch (_) {
               continue;
             }
           }
         }
       }
+      
+      // 流结束但没收到done事件
+      yield AgentMessage(
+        id: 'done_${DateTime.now().millisecondsSinceEpoch}',
+        type: AgentMessageType.done,
+        content: '',
+        timestamp: DateTime.now(),
+      );
     } finally {
       _activeRequests.remove(requestId);
+    }
+  }
+
+  /// 根据SSE event类型创建AgentMessage
+  AgentMessage? _createMessage(String eventType, Map<String, dynamic> json) {
+    final now = DateTime.now();
+    
+    switch (eventType) {
+      case 'thinking':
+        return AgentMessage(
+          id: 'thinking_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.thinking,
+          content: json['content'] as String? ?? '',
+          timestamp: now,
+        );
+
+      case 'text_delta':
+        final content = json['content'] as String? ?? '';
+        if (content.isEmpty) return null;
+        return AgentMessage(
+          id: 'delta_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.answer,
+          content: content,
+          timestamp: now,
+        );
+
+      case 'tool_call':
+        return AgentMessage(
+          id: json['id'] as String? ?? 'tool_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.toolCall,
+          content: '',
+          timestamp: now,
+          toolName: json['name'] as String? ?? 'unknown',
+          toolArgs: json['arguments'] as Map<String, dynamic>?,
+          callId: json['id'] as String?,
+          toolStatus: ToolCallStatus.running,
+        );
+
+      case 'tool_result':
+        return AgentMessage(
+          id: json['id'] as String? ?? 'result_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.toolResult,
+          content: '',
+          timestamp: now,
+          callId: json['id'] as String?,
+          toolStatus: ToolCallStatus.success,
+          toolResult: json['result'],
+          toolName: json['name'] as String?,
+        );
+
+      case 'tool_retry':
+        return AgentMessage(
+          id: 'retry_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.toolCall,
+          content: '',
+          timestamp: now,
+          toolName: json['name'] as String?,
+          toolStatus: ToolCallStatus.running,
+        );
+
+      case 'error':
+        return AgentMessage(
+          id: 'error_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.error,
+          content: '',
+          timestamp: now,
+          errorMessage: json['content'] as String? ?? json['error'] as String? ?? '未知错误',
+        );
+
+      case 'done':
+        return AgentMessage(
+          id: 'done_${now.millisecondsSinceEpoch}',
+          type: AgentMessageType.done,
+          content: '',
+          timestamp: now,
+        );
+
+      case 'session':
+        return null;
+
+      default:
+        final type = json['type'] as String?;
+        if (type != null) {
+          return AgentMessage(
+            id: '${type}_${now.millisecondsSinceEpoch}',
+            type: AgentMessageType.fromString(type),
+            content: json['content'] as String? ?? '',
+            timestamp: now,
+          );
+        }
+        return null;
     }
   }
 

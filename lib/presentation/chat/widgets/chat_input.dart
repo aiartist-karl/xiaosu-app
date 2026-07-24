@@ -1,18 +1,45 @@
 // ============================================================================
-// 小酥 - 聊天输入框（支持附件）
+// 小酥 - 聊天输入组件（真实文件选择 + 后端上传）
 // ============================================================================
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../../core/services/agent_api_service.dart';
 
-/// 聊天输入框组件
+/// 附件信息
+class AttachmentInfo {
+  final String name;
+  final String path;
+  final int size;
+  final String type; // image, file
+  String? serverPath; // 上传后的服务器路径
+  bool uploading;
+  bool uploaded;
+
+  AttachmentInfo({
+    required this.name,
+    required this.path,
+    required this.size,
+    required this.type,
+    this.serverPath,
+    this.uploading = false,
+    this.uploaded = false,
+  });
+}
+
+/// 聊天输入组件
 class ChatInput extends StatefulWidget {
   final void Function(String text, {List<String>? filePaths}) onSend;
   final bool isLoading;
+  final VoidCallback? onStop;
 
   const ChatInput({
     super.key,
     required this.onSend,
     this.isLoading = false,
+    this.onStop,
   });
 
   @override
@@ -20,9 +47,12 @@ class ChatInput extends StatefulWidget {
 }
 
 class _ChatInputState extends State<ChatInput> {
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
-  final List<_AttachmentItem> _attachments = [];
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final List<AttachmentInfo> _attachments = [];
+  final ImagePicker _imagePicker = ImagePicker();
+  final FilePicker _filePicker = FilePicker();
+  bool _isUploading = false;
 
   @override
   void dispose() {
@@ -31,54 +61,116 @@ class _ChatInputState extends State<ChatInput> {
     super.dispose();
   }
 
-  void _handleSend() {
-    final text = _controller.text.trim();
-    final hasAttachments = _attachments.isNotEmpty;
-    if (text.isEmpty && !hasAttachments) return;
-    if (widget.isLoading) return;
+  /// 选择图片
+  Future<void> _pickImage() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 85,
+      );
 
-    final filePaths = _attachments.map((a) => a.path).toList();
-    widget.onSend(text, filePaths: filePaths.isNotEmpty ? filePaths : null);
-    _controller.clear();
-    _attachments.clear();
-    _focusNode.requestFocus();
-    // Force rebuild to clear attachment previews
-    if (mounted) setState(() {});
+      for (final xfile in images) {
+        final file = File(xfile.path);
+        final size = await file.length();
+        setState(() {
+          _attachments.add(AttachmentInfo(
+            name: xfile.name,
+            path: xfile.path,
+            size: size,
+            type: 'image',
+          ));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选择图片失败: ${e.toString()}')),
+        );
+      }
+    }
   }
 
-  void _showAttachmentMenu() {
+  /// 拍摄照片
+  Future<void> _takePhoto() async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 85,
+      );
+      if (photo != null) {
+        final file = File(photo.path);
+        final size = await file.length();
+        setState(() {
+          _attachments.add(AttachmentInfo(
+            name: photo.name,
+            path: photo.path,
+            size: size,
+            type: 'image',
+          ));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('拍照失败: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  /// 选择文件
+  Future<void> _pickFile() async {
+    try {
+      final List<XFile> files = await _filePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+      );
+      for (final xfile in files) {
+        final file = File(xfile.path);
+        final size = await file.length();
+        setState(() {
+          _attachments.add(AttachmentInfo(
+            name: xfile.name,
+            path: xfile.path,
+            size: size,
+            type: 'file',
+          ));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选择文件失败: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  /// 显示附件来源选项
+  void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
+      builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library, color: Colors.blue),
               title: const Text('从相册选择'),
-              subtitle: const Text('选择图片或视频'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage();
-              },
+              onTap: () { Navigator.pop(ctx); _pickImage(); },
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: Colors.green),
               title: const Text('拍照'),
-              subtitle: const Text('拍摄照片'),
-              onTap: () {
-                Navigator.pop(context);
-                _takePhoto();
-              },
+              onTap: () { Navigator.pop(ctx); _takePhoto(); },
             ),
             ListTile(
-              leading: const Icon(Icons.insert_drive_file, color: Colors.orange),
+              leading: const Icon(Icons.attach_file, color: Colors.orange),
               title: const Text('选择文件'),
-              subtitle: const Text('选择文档或其他文件'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickFile();
-              },
+              onTap: () { Navigator.pop(ctx); _pickFile(); },
             ),
           ],
         ),
@@ -86,136 +178,175 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  Future<void> _pickImage() async {
-    // 模拟图片选择 - 实际使用 image_picker
-    // 在真实环境中: final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    _addMockAttachment('image', '照片_${DateTime.now().millisecondsSinceEpoch % 10000}.jpg');
-  }
-
-  Future<void> _takePhoto() async {
-    // 模拟拍照
-    _addMockAttachment('image', '拍照_${DateTime.now().millisecondsSinceEpoch % 10000}.jpg');
-  }
-
-  Future<void> _pickFile() async {
-    // 模拟文件选择
-    _addMockAttachment('file', '文档_${DateTime.now().millisecondsSinceEpoch % 10000}.pdf');
-  }
-
-  void _addMockAttachment(String type, String name) {
-    setState(() {
-      _attachments.add(_AttachmentItem(
-        path: '/uploads/$name',
-        name: name,
-        type: type,
-      ));
-    });
-  }
-
+  /// 移除附件
   void _removeAttachment(int index) {
-    setState(() {
-      _attachments.removeAt(index);
-    });
+    setState(() { _attachments.removeAt(index); });
   }
 
-  IconData _getAttachmentIcon(String type) {
-    switch (type) {
-      case 'image':
-        return Icons.image;
-      case 'video':
-        return Icons.videocam;
-      case 'file':
-        return Icons.insert_drive_file;
-      default:
-        return Icons.attach_file;
+  /// 上传所有附件到后端
+  Future<List<String>> _uploadAttachments() async {
+    final List<String> serverPaths = [];
+    setState(() { _isUploading = true; });
+
+    try {
+      for (int i = 0; i < _attachments.length; i++) {
+        if (_attachments[i].uploaded && _attachments[i].serverPath != null) {
+          serverPaths.add(_attachments[i].serverPath!);
+          continue;
+        }
+
+        setState(() { _attachments[i].uploading = true; });
+
+        try {
+          final result = await AgentApiService.instance.uploadFile(
+            _attachments[i].path,
+            fileName: _attachments[i].name,
+          );
+
+          if (result['success'] == true) {
+            setState(() {
+              _attachments[i].serverPath = result['file_path'] as String;
+              _attachments[i].uploaded = true;
+              _attachments[i].uploading = false;
+            });
+            serverPaths.add(result['file_path'] as String);
+          } else {
+            throw Exception('上传失败');
+          }
+        } catch (e) {
+          setState(() { _attachments[i].uploading = false; });
+          throw Exception('上传 ${_attachments[i].name} 失败: ${e.toString()}');
+        }
+      }
+    } finally {
+      setState(() { _isUploading = false; });
     }
+
+    return serverPaths;
   }
 
-  Color _getAttachmentColor(String type) {
-    switch (type) {
-      case 'image':
-        return Colors.blue;
-      case 'video':
-        return Colors.purple;
-      case 'file':
-        return Colors.orange;
-      default:
-        return Colors.grey;
+  /// 发送消息
+  Future<void> _handleSend() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty && _attachments.isEmpty) return;
+    if (widget.isLoading) return;
+
+    List<String>? filePaths;
+    if (_attachments.isNotEmpty) {
+      try {
+        filePaths = await _uploadAttachments();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('附件上传失败: ${e.toString()}')),
+          );
+        }
+        return;
+      }
     }
+
+    widget.onSend(text, filePaths: filePaths);
+    _controller.clear();
+    setState(() { _attachments.clear(); });
+    _focusNode.requestFocus();
+  }
+
+  /// 格式化文件大小
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       padding: EdgeInsets.only(
-        left: 16,
-        right: 8,
-        top: _attachments.isNotEmpty ? 8 : 8,
-        bottom: 8 + MediaQuery.of(context).padding.bottom,
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 附件预览区域
+          // 附件预览区
           if (_attachments.isNotEmpty)
-            Container(
-              height: 72,
-              margin: const EdgeInsets.only(bottom: 8),
+            SizedBox(
+              height: 80,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _attachments.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
+                itemBuilder: (ctx, index) {
                   final att = _attachments[index];
                   return Stack(
-                    clipBehavior: Clip.none,
                     children: [
                       Container(
-                        width: 64,
-                        height: 64,
+                        width: 70,
+                        height: 70,
                         decoration: BoxDecoration(
-                          color: _getAttachmentColor(att.type).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _getAttachmentColor(att.type).withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[100],
+                        ),
+                        child: att.type == 'image'
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(File(att.path), fit: BoxFit.cover),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.insert_drive_file, size: 28, color: Colors.blue[400]),
+                                  const SizedBox(height: 2),
+                                  Text(_formatSize(att.size), style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                                ],
+                              ),
+                      ),
+                      // 上传状态
+                      if (att.uploading)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.black45,
+                            ),
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                           ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _getAttachmentIcon(att.type),
-                              color: _getAttachmentColor(att.type),
-                              size: 24,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              att.name.length > 8 ? '${att.name.substring(0, 8)}...' : att.name,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: _getAttachmentColor(att.type),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                      if (att.uploaded)
+                        Positioned(
+                          top: 2,
+                          right: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.check, size: 12, color: Colors.white),
+                          ),
                         ),
-                      ),
+                      // 删除按钮
                       Positioned(
-                        top: -6,
-                        right: -6,
+                        top: -4,
+                        left: -4,
                         child: GestureDetector(
                           onTap: () => _removeAttachment(index),
                           child: Container(
-                            width: 20,
-                            height: 20,
+                            padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               color: Colors.red,
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.close, size: 12, color: Colors.white),
                           ),
@@ -226,76 +357,79 @@ class _ChatInputState extends State<ChatInput> {
                 },
               ),
             ),
+          if (_attachments.isNotEmpty) const SizedBox(height: 8),
+
           // 输入行
           Row(
             children: [
               // 附件按钮
-              IconButton(
-                icon: const Icon(Icons.attach_file, size: 22),
-                onPressed: _showAttachmentMenu,
-                tooltip: '添加附件',
-                color: Colors.grey.shade600,
-              ),
-              // 输入框
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  decoration: InputDecoration(
-                    hintText: _attachments.isNotEmpty ? '输入消息或发送附件...' : '给小酥发消息...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    isDense: true,
+              GestureDetector(
+                onTap: _showAttachmentOptions,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  maxLines: 4,
-                  minLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _handleSend(),
+                  child: Icon(Icons.add, color: isDark ? Colors.grey[400] : Colors.grey[600], size: 22),
                 ),
               ),
-              const SizedBox(width: 4),
-              // 发送按钮
-              Container(
-                decoration: BoxDecoration(
-                  color: widget.isLoading
-                      ? Colors.grey.shade300
-                      : Theme.of(context).colorScheme.primary,
-                  shape: BoxShape.circle,
+              const SizedBox(width: 8),
+
+              // 文本输入
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    maxLines: 4,
+                    minLines: 1,
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: '输入消息...',
+                      hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400]),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
+                    onSubmitted: (_) => _handleSend(),
+                  ),
                 ),
-                child: IconButton(
-                  icon: widget.isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.send, color: Colors.white, size: 20),
-                  onPressed: widget.isLoading ? null : _handleSend,
+              ),
+              const SizedBox(width: 8),
+
+              // 发送/停止按钮
+              GestureDetector(
+                onTap: widget.isLoading ? widget.onStop : _handleSend,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: widget.isLoading
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    widget.isLoading ? Icons.stop : Icons.send,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ],
           ),
+
+          // 上传状态提示
+          if (_isUploading)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('正在上传附件...', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            ),
         ],
       ),
     );
   }
-}
-
-/// 附件项数据模型
-class _AttachmentItem {
-  final String path;
-  final String name;
-  final String type;
-
-  const _AttachmentItem({
-    required this.path,
-    required this.name,
-    required this.type,
-  });
 }
