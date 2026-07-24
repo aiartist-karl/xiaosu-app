@@ -1,9 +1,13 @@
 // ============================================================================
-// 小酥 - 插件市场
+// 小酥 - 插件市场（对接后端版）
 // ============================================================================
 
+import 'dart:convert';
+import 'package:http/http.dart' as http';
 import '../skill/skill.dart';
 import '../skill/skill_registry.dart';
+import '../services/agent_api_service.dart';
+import '../config/app_config.dart';
 
 /// 插件信息
 class PluginInfo {
@@ -30,10 +34,22 @@ class PluginInfo {
   });
 }
 
-/// 插件市场
+/// 后端工具映射
+class BackendTool {
+  final String name;
+  final String description;
+  final bool enabled;
+
+  const BackendTool({required this.name, required this.description, this.enabled = true});
+}
+
+/// 插件市场 - 对接后端真实工具
 class PluginMarket {
   static final PluginMarket instance = PluginMarket._();
   PluginMarket._();
+
+  final AgentApiService _agentApi = AgentApiService.instance;
+  final http.Client _client = http.Client();
 
   // 内置插件列表
   final List<PluginInfo> _plugins = [
@@ -55,6 +71,10 @@ class PluginMarket {
     const PluginInfo(id: 'pro_domain', name: '专业领域', description: '专业领域知识库', icon: '🎓', category: '知识', installed: true),
   ];
 
+  // 后端工具缓存
+  List<BackendTool> _backendTools = [];
+  bool _backendLoaded = false;
+
   /// 获取所有插件
   List<PluginInfo> get allPlugins => List.unmodifiable(_plugins);
 
@@ -64,10 +84,68 @@ class PluginMarket {
   /// 获取可用插件
   List<PluginInfo> get availablePlugins => _plugins.where((p) => !p.installed).toList();
 
+  /// 获取后端工具列表
+  List<BackendTool> get backendTools => List.unmodifiable(_backendTools);
+
+  /// 后端工具是否已加载
+  bool get isBackendLoaded => _backendLoaded;
+
+  /// 从后端获取真实工具列表
+  Future<bool> fetchFromBackend() async {
+    try {
+      final response = await _client
+          .get(Uri.parse('${AppConfig.agentApiBase}/api/health'),
+              headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'})
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final tools = data['tools'] as List<dynamic>? ?? [];
+
+        _backendTools = tools.map((t) {
+          final name = t is String ? t : (t as Map)['name'] as String? ?? 'unknown';
+          return BackendTool(
+            name: name,
+            description: _toolDescription(name),
+            enabled: true,
+          );
+        }).toList();
+
+        _backendLoaded = true;
+
+        // 同步更新本地插件的installed状态
+        for (int i = 0; i < _plugins.length; i++) {
+          final plugin = _plugins[i];
+          final isAvailable = _backendTools.any((t) => t.name == plugin.id);
+          if (isAvailable != plugin.installed) {
+            _plugins[i] = PluginInfo(
+              id: plugin.id, name: plugin.name, description: plugin.description,
+              version: plugin.version, author: plugin.author, category: plugin.category,
+              icon: plugin.icon, installed: isAvailable, official: plugin.official,
+            );
+          }
+        }
+
+        return true;
+      }
+    } catch (_) {
+      // fallback到本地数据
+    }
+    return false;
+  }
+
   /// 安装插件
   Future<bool> install(String pluginId) async {
     final idx = _plugins.indexWhere((p) => p.id == pluginId);
     if (idx == -1) return false;
+
+    // 尝试通知后端
+    try {
+      await _notifyBackend('enable', pluginId);
+    } catch (_) {
+      // 后端不可达，仅本地更新
+    }
+
     _plugins[idx] = PluginInfo(
       id: _plugins[idx].id, name: _plugins[idx].name,
       description: _plugins[idx].description, version: _plugins[idx].version,
@@ -81,6 +159,12 @@ class PluginMarket {
   Future<bool> uninstall(String pluginId) async {
     final idx = _plugins.indexWhere((p) => p.id == pluginId);
     if (idx == -1) return false;
+
+    // 尝试通知后端
+    try {
+      await _notifyBackend('disable', pluginId);
+    } catch (_) {}
+
     _plugins[idx] = PluginInfo(
       id: _plugins[idx].id, name: _plugins[idx].name,
       description: _plugins[idx].description, version: _plugins[idx].version,
@@ -88,6 +172,19 @@ class PluginMarket {
       icon: _plugins[idx].icon, installed: false, official: _plugins[idx].official,
     );
     return true;
+  }
+
+  /// 通知后端启用/禁用工具
+  Future<void> _notifyBackend(String action, String pluginId) async {
+    // 发送chat消息通知后端（通过AgentAPI）
+    final message = action == 'enable'
+        ? '启用插件: $pluginId'
+        : '禁用插件: $pluginId';
+    // 通过现有的API通道通知
+    await _agentApi.sendMessage(
+      conversationId: 'system_plugin_mgr',
+      message: message,
+    ).drain();
   }
 
   /// 搜索插件
@@ -98,5 +195,25 @@ class PluginMarket {
         p.description.toLowerCase().contains(q) ||
         p.category.toLowerCase().contains(q)
     ).toList();
+  }
+
+  /// 工具描述映射
+  String _toolDescription(String name) {
+    const map = {
+      'bash_execute': '执行Shell命令', 'bash_background': '后台执行命令',
+      'task_status': '查看后台任务状态', 'file_read': '读取文件', 'file_write': '写入文件',
+      'file_list': '列出目录', 'create_file': '创建文件', 'edit_file': '编辑文件',
+      'create_directory': '创建目录', 'delete_file': '删除文件', 'code_search': '搜索代码',
+      'file_search': '搜索文件', 'web_search': '网络搜索', 'web_fetch': '获取网页',
+      'github_api': 'GitHub操作', 'git_push': 'Git推送', 'image_generate': '生成图片',
+      'email_send': '发送邮件', 'calendar_create': '创建日历', 'calendar_list': '查看日历',
+      'memory_save': '保存记忆', 'memory_search': '搜索记忆', 'memory_list': '列出记忆',
+      'code_analysis': '代码分析', 'system_info': '系统信息',
+    };
+    return map[name] ?? '工具: $name';
+  }
+
+  void dispose() {
+    _client.close();
   }
 }
