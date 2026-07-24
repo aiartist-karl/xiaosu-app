@@ -25,7 +25,7 @@ class ChatEngine {
     if (_isStreaming) return;
     _isStreaming = true;
     
-    final url = '${AppConfig.baseUrl}/chat';
+    final url = '${AppConfig.agentChatEndpoint}';
     final body = jsonEncode({
       'message': message,
       'session_id': sessionId ?? _currentSessionId,
@@ -38,7 +38,7 @@ class ChatEngine {
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${AppConfig.authToken}',
+          'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
         },
         body: body,
       );
@@ -103,12 +103,12 @@ class ChatEngine {
 
   /// 获取历史消息
   Future<List<Map<String, dynamic>>> getHistory(String sessionId) async {
-    final url = '${AppConfig.baseUrl}/history/$sessionId';
+    final url = '${AppConfig.agentApiBase}/api/history/$sessionId';
     try {
       final response = await http.get(
         Uri.parse(url),
         headers: {
-          'Authorization': 'Bearer ${AppConfig.authToken}',
+          'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
         },
       );
       if (response.statusCode == 200) {
