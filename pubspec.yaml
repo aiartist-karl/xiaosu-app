@@ -30,6 +30,7 @@ dependencies:
   # 文件处理
   image_picker: ^1.1.2
   file_picker: ^8.1.7
+  url_launcher: ^6.2.4
   
   # UI
   flutter_markdown: ^0.6.18
