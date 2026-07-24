@@ -29,8 +29,8 @@ class _ToolsScreenState extends State<ToolsScreen> with SingleTickerProviderStat
     try {
       // 获取后端工具列表
       final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/api/tools'),
-        headers: {'Authorization': 'Bearer ${AppConfig.authToken}'},
+        Uri.parse('${AppConfig.agentApiBase}/api/tools'),
+        headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -127,10 +127,10 @@ class _ToolsScreenState extends State<ToolsScreen> with SingleTickerProviderStat
 
       try {
         final response = await http.post(
-          Uri.parse('${AppConfig.baseUrl}/api/tools/execute'),
+          Uri.parse('${AppConfig.agentApiBase}/api/tools/execute'),
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${AppConfig.authToken}',
+            'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
           },
           body: jsonEncode({'name': name, 'arguments': args}),
         );

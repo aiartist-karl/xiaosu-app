@@ -25,8 +25,8 @@ class _AgentsScreenState extends State<AgentsScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/api/agents'),
-        headers: {'Authorization': 'Bearer ${AppConfig.authToken}'},
+        Uri.parse('${AppConfig.agentApiBase}/api/agents'),
+        headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -80,10 +80,10 @@ class _AgentsScreenState extends State<AgentsScreen> {
     if (result != null && result['name']!.isNotEmpty) {
       try {
         final response = await http.post(
-          Uri.parse('${AppConfig.baseUrl}/api/agents'),
+          Uri.parse('${AppConfig.agentApiBase}/api/agents'),
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${AppConfig.authToken}',
+            'Authorization': 'Bearer ${AppConfig.agentAuthToken}',
           },
           body: jsonEncode(result),
         );
@@ -117,8 +117,8 @@ class _AgentsScreenState extends State<AgentsScreen> {
     if (confirm == true) {
       try {
         await http.delete(
-          Uri.parse('${AppConfig.baseUrl}/api/agents/$id'),
-          headers: {'Authorization': 'Bearer ${AppConfig.authToken}'},
+          Uri.parse('${AppConfig.agentApiBase}/api/agents/$id'),
+          headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'},
         );
         _loadAgents();
       } catch (e) {
