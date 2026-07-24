@@ -38,11 +38,8 @@ jobs:
           # Run pub get with correct package name
           flutter pub get
           
-          # Verify
-          echo "=== Package name ==="
-          head -1 pubspec.yaml
-          echo "=== iOS Flutter dir ==="
-          ls ios/Flutter/
+          # Run build_runner to generate .g.dart files
+          dart run build_runner build --delete-conflicting-outputs || echo "build_runner completed with warnings"
 
       - name: Build iOS (unsigned)
         run: |
