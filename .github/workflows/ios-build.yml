@@ -12,6 +12,8 @@ jobs:
   build-ios:
     runs-on: macos-latest
     timeout-minutes: 45
+    env:
+      FLUTTER_SWIFT_PACKAGE_MANAGER: "0"
 
     steps:
       - name: Checkout repository
@@ -29,13 +31,20 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Build iOS (no codesign, no SPM)
+      - name: Build iOS (no codesign, SPM disabled)
         run: |
+          # Disable Swift Package Manager completely
+          export FLUTTER_SWIFT_PACKAGE_MANAGER=0
+          
+          # Also modify Podfile if needed
           cd ios
-          # 禁用 Swift Package Manager，使用 CocoaPods
-          sed -i.bak 's/\.buildFramework/# .buildFramework/' Podfile 2>/dev/null || true
+          if [ -f Podfile ]; then
+            sed -i.bak 's/\.buildFramework/# .buildFramework/' Podfile 2>/dev/null || true
+          fi
           cd ..
-          flutter build ios --release --no-codesign --no-tree-shake-icons --verbose 2>&1 | tail -50
+          
+          # Build with SPM disabled
+          flutter build ios --release --no-codesign --no-tree-shake-icons --verbose 2>&1 | tail -100
 
       - name: Package IPA
         if: success()
