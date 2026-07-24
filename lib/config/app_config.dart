@@ -7,6 +7,10 @@ class AppConfig {
   // ==================== 后端Agent服务（通过nginx代理） ====================
   static const String agentApiBase = 'http://47.116.29.140/agent';
   static const String agentChatEndpoint = '$agentApiBase/api/chat';
+
+  // ==================== 认证 ====================
+  static const String agentAuthToken = 'xiaosu-dev-key-2024';
+
   static const String agentWsUrl = 'ws://47.116.29.140/agent/ws/chat';
 
   // ==================== DeepSeek API 直连（保留兼容） ====================
