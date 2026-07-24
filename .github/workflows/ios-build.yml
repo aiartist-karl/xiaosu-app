@@ -23,21 +23,27 @@ jobs:
 
       - name: Regenerate iOS project
         run: |
-          # Save custom iOS files
+          # Save critical files before regenerating
+          cp pubspec.yaml /tmp/pubspec.yaml.bak
+          cp lib/main.dart /tmp/main.dart.bak 2>/dev/null || true
           cp ios/Runner/AppDelegate.swift /tmp/AppDelegate.swift.bak 2>/dev/null || true
           cp ios/Runner/Info.plist /tmp/Info.plist.bak 2>/dev/null || true
           cp ios/Runner/Runner.entitlements /tmp/Runner.entitlements.bak 2>/dev/null || true
+          cp -r assets /tmp/assets.bak 2>/dev/null || true
           
           # Remove existing iOS project
           rm -rf ios/
           
           # Regenerate iOS project from Flutter template
-          flutter create --platforms=ios --project-name=xiaosu --org=com.xiaosu .
+          flutter create --platforms=ios --project-name=xiaosu_core --org=com.xiaosu .
           
-          # Restore custom files
+          # Restore critical files
+          cp /tmp/pubspec.yaml.bak pubspec.yaml
+          cp /tmp/main.dart.bak lib/main.dart 2>/dev/null || true
           cp /tmp/AppDelegate.swift.bak ios/Runner/AppDelegate.swift 2>/dev/null || true
           cp /tmp/Info.plist.bak ios/Runner/Info.plist 2>/dev/null || true
           cp /tmp/Runner.entitlements.bak ios/Runner/Runner.entitlements 2>/dev/null || true
+          cp -r /tmp/assets.bak assets 2>/dev/null || true
           
           # Ensure Flutter.xcframework is in place
           FLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)
@@ -47,6 +53,9 @@ jobs:
           
           # Re-run pub get to regenerate plugin configs
           flutter pub get
+          
+          echo "=== Verify package name ==="
+          head -3 pubspec.yaml
 
       - name: Build iOS (unsigned)
         run: |
