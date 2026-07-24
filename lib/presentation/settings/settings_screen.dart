@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.extension),
               title: const Text('技能管理'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.go('/skills'),
+              onTap: () => context.pushNamed('skill-manager'),
             ),
             ListTile(
               leading: const Icon(Icons.store),
@@ -93,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const ListTile(
               leading: Icon(Icons.info_outline),
               title: Text('版本'),
-              subtitle: Text('v2.0.0'),
+              subtitle: Text('v2.3.0'),
             ),
           ]),
           const SizedBox(height: 32),
