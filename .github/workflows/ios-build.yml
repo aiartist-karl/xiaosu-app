@@ -2,44 +2,32 @@ name: Build iOS IPA
 
 on:
   push:
-    branches: [main]
+    branches: [main, master, develop]
   workflow_dispatch:
 
 jobs:
   build-ios:
     runs-on: macos-latest
+    timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
-          channel: 'stable'
+          channel: stable
           cache: true
 
-      - name: Create iOS project from scratch
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Prepare iOS project
         run: |
-          # Remove existing iOS directory  
+          # Remove existing iOS directory and regenerate with correct package name
           rm -rf ios/
-          
-          # Regenerate iOS project
-          flutter create --platforms=ios --project-name=xiaosu_core --org=com.xiaosu .
-          
-          # Restore original pubspec.yaml (flutter create changes the name)
-          cp .ci/pubspec_original.yaml pubspec.yaml
-          
-          # Ensure Flutter.xcframework is in place
-          FLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)
-          if [ -n "$FLUTTER_CACHE" ] && [ ! -d "ios/Flutter/Flutter.xcframework" ]; then
-            cp -r "$FLUTTER_CACHE" ios/Flutter/
-          fi
-          
-          # Run pub get with correct package name
+          flutter create --platforms=ios --project-name=xiaosu --org=com.xiaosu .
           flutter pub get
-          
-          # Run build_runner to generate .g.dart files
-          dart run build_runner build --delete-conflicting-outputs || echo "build_runner completed with warnings"
 
       - name: Build iOS (unsigned)
         run: |
@@ -53,6 +41,18 @@ jobs:
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: xiaosu-ios-unsigned
           path: xiaosu-ios-unsigned.ipa
+          retention-days: 30
+
+      - name: Upload build logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-build-logs
+          path: |
+            build/
+            ios/
+          retention-days: 7
