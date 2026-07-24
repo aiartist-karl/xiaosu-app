@@ -1,0 +1,37 @@
+platform :ios, '15.0'
+use_frameworks! :linkage => :static
+
+# Reset build settings for Cocoapods integration
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+abstract_target 'Runner' do
+  config = File.join('flutter', 'ephemeral', 'generated_xcode_build_settings_configuration.rb')
+  load config if File.exist?(config)
+
+  target 'Runner' do
+    use_frameworks! :linkage => :static
+
+    pod 'Flutter', :path => 'Flutter'
+    pod 'firebase_auth'
+    pod 'cloud_firestore'
+    pod 'shared_preferences_ios'
+    pod 'path_provider_foundation'
+    pod 'url_launcher_ios'
+    pod 'sign_in_with_apple'
+    pod 'google_sign_in_ios'
+    pod 'firebase_core'
+  end
+
+  post_install do |installer|
+    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+          '$(inherited)',
+          'PERMISSION_CAMERA=1',
+          'PERMISSION_PHOTOS=1',
+        ]
+      end
+    end
+  end
+end
