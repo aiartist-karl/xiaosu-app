@@ -21,32 +21,36 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Precache iOS artifacts
-        run: flutter precache --ios
-
-      - name: Prepare iOS build
+      - name: Regenerate iOS project
         run: |
+          # Save custom iOS files
+          cp ios/Runner/AppDelegate.swift /tmp/AppDelegate.swift.bak 2>/dev/null || true
+          cp ios/Runner/Info.plist /tmp/Info.plist.bak 2>/dev/null || true
+          cp ios/Runner/Runner.entitlements /tmp/Runner.entitlements.bak 2>/dev/null || true
+          
+          # Remove existing iOS project
+          rm -rf ios/
+          
+          # Regenerate iOS project from Flutter template
+          flutter create --platforms=ios --project-name=xiaosu --org=com.xiaosu .
+          
+          # Restore custom files
+          cp /tmp/AppDelegate.swift.bak ios/Runner/AppDelegate.swift 2>/dev/null || true
+          cp /tmp/Info.plist.bak ios/Runner/Info.plist 2>/dev/null || true
+          cp /tmp/Runner.entitlements.bak ios/Runner/Runner.entitlements 2>/dev/null || true
+          
           # Ensure Flutter.xcframework is in place
           FLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)
           if [ -n "$FLUTTER_CACHE" ] && [ ! -d "ios/Flutter/Flutter.xcframework" ]; then
-            echo "Copying Flutter.xcframework from cache..."
-            cp -r "$FLUTTER_CACHE" ios/Flutter/Flutter.xcframework
+            cp -r "$FLUTTER_CACHE" ios/Flutter/
           fi
-          # Also check for it in the flutter SDK bin/cache
-          if [ ! -d "ios/Flutter/Flutter.xcframework" ]; then
-            echo "Looking for Flutter.xcframework in FLUTTER_ROOT..."
-            ls -la $FLUTTER_ROOT/bin/cache/artifacts/engine/ios/ 2>/dev/null || true
-            find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -5
-            # Try to create it from the engine artifacts
-            ENGINE_DIR="$FLUTTER_ROOT/bin/cache/artifacts/engine/ios"
-            if [ -d "$ENGINE_DIR" ]; then
-              ls -la "$ENGINE_DIR"
-            fi
-          fi
+          
+          # Re-run pub get to regenerate plugin configs
+          flutter pub get
 
       - name: Build iOS (unsigned)
         run: |
-          flutter build ios --release --no-codesign --verbose 2>&1 | tail -100
+          flutter build ios --release --no-codesign
 
       - name: Package IPA
         run: |
