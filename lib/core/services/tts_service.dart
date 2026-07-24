@@ -3,7 +3,7 @@
 // ============================================================================
 
 import 'dart:convert';
-import 'package:http/http.dart' as http';
+import 'package:http/http.dart' as http;
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../config/app_config.dart';
 import '../../core/gateway/api_gateway.dart';
@@ -16,7 +16,7 @@ class TtsService {
   final FlutterTts _flutterTts = FlutterTts();
   final ApiGateway _api = ApiGateway.instance;
   bool _isInitialized = false;
-  bool _useRemote = true; // 优先使用远程TTS
+  bool _useRemote = true;
 
   /// 初始化TTS引擎
   Future<void> _ensureInitialized() async {
@@ -34,18 +34,15 @@ class TtsService {
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
 
-    // 去除Markdown标记
     final cleanText = _stripMarkdown(text);
     if (cleanText.isEmpty) return;
 
     await _ensureInitialized();
 
-    // 尝试远程TTS
     if (_useRemote) {
       try {
         final audioUrl = await _remoteSynthesize(cleanText);
         if (audioUrl.isNotEmpty) {
-          // 远程TTS成功，播放音频URL（通过本地TTS引擎播放）
           await _flutterTts.speak(cleanText);
           return;
         }
@@ -54,7 +51,6 @@ class TtsService {
       }
     }
 
-    // 本地TTS
     await _flutterTts.speak(cleanText);
   }
 
@@ -73,7 +69,7 @@ class TtsService {
           'voice': 'female_1',
           'speed': 1.0,
         },
-        headers: {'Authorization': 'Bearer ${AppConfig.agentAuthToken}'},
+        headers: {'Authorization': 'Bearer \${AppConfig.agentAuthToken}'},
       );
 
       if (response.success && response.data != null) {
@@ -86,21 +82,14 @@ class TtsService {
   /// 去除Markdown标记
   String _stripMarkdown(String text) {
     var result = text;
-    // 去除代码块
-    result = result.replaceAll(RegExp(r'```[\s\S]*?```'), '');
-    result = result.replaceAll(RegExp(r'`[^`]+`'), '');
-    // 去除图片
+    result = result.replaceAll(RegExp(r'\`\`\`[\s\S]*?\`\`\`'), '');
+    result = result.replaceAll(RegExp(r'\`[^\`]+\`'), '');
     result = result.replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '');
-    // 去除链接保留文字
     result = result.replaceAllMapped(RegExp(r'\[([^\]]+)\]\(.*?\)'), (m) => m.group(1) ?? '');
-    // 去除标题标记
     result = result.replaceAll(RegExp(r'^#+\s*'), '');
-    // 去除加粗/斜体
-    result = result.replaceAll(RegExp(r'\*+([^*]+)\*+'), r'$1');
-    // 去除列表标记
+    result = result.replaceAll(RegExp(r'\*+([^*]+)\*+'), r'\\$1');
     result = result.replaceAll(RegExp(r'^[-*+]\s*', multiLine: true), '');
     result = result.replaceAll(RegExp(r'^\d+\.\s*', multiLine: true), '');
-    // 去除引用
     result = result.replaceAll(RegExp(r'^>\s*', multiLine: true), '');
     return result.trim();
   }
