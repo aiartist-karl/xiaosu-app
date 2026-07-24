@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../../core/config/app_config.dart';
+import '../../config/app_config.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
