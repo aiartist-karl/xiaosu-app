@@ -19,6 +19,11 @@ import 'workflow_editor/workflow_editor_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'plugin_store/plugin_store_screen.dart';
 import 'monitor/monitor_dashboard.dart';
+import 'agents/agents_screen.dart';
+import 'agents/agent_task_screen.dart';
+import 'projects/projects_screen.dart';
+import 'projects/project_detail_screen.dart';
+import 'projects/project_editor_screen.dart';
 
 /// 应用路由管理
 class AppRouter {
@@ -52,6 +57,32 @@ class AppRouter {
         GoRoute(path: '/dashboard', name: 'dashboard', builder: (_, __) => const DashboardScreen()),
         GoRoute(path: '/plugins', name: 'plugins', builder: (_, __) => const PluginStoreScreen()),
         GoRoute(path: '/monitor', name: 'monitor', builder: (_, __) => const MonitorDashboard()),
+        GoRoute(path: '/agents', name: 'agents', builder: (_, __) => const AgentsScreen()),
+        GoRoute(
+          path: '/agent-task/:agentId',
+          name: 'agent-task',
+          builder: (_, state) {
+            final id = state.pathParameters['agentId']!;
+            return AgentTaskScreen(agentId: id);
+          },
+        ),
+        GoRoute(path: '/projects', name: 'projects', builder: (_, __) => const ProjectsScreen()),
+        GoRoute(
+          path: '/project/:projectId',
+          name: 'project-detail',
+          builder: (_, state) {
+            final id = state.pathParameters['projectId']!;
+            return ProjectDetailScreen(projectId: id);
+          },
+        ),
+        GoRoute(
+          path: '/project/:projectId/editor',
+          name: 'project-editor',
+          builder: (_, state) {
+            final id = state.pathParameters['projectId']!;
+            return ProjectEditorScreen(projectId: id);
+          },
+        ),
       ],
     );
   }

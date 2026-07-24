@@ -161,6 +161,16 @@ class _HomePageState extends State<HomePage> {
             tooltip: '任务管理',
           ),
           IconButton(
+            icon: const Icon(Icons.psychology),
+            onPressed: () => context.push('/agents'),
+            tooltip: 'Agent协作',
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_outlined),
+            onPressed: () => context.push('/projects'),
+            tooltip: '工程项目',
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => context.go('/settings'),
             tooltip: '设置',

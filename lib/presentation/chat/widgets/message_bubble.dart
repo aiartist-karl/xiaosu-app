@@ -9,9 +9,10 @@ import '../../../models/chat_message.dart';
 import '../../../models/agent_message.dart';
 import 'tool_call_card.dart';
 import 'thinking_block.dart';
+import '../../../core/services/tts_service.dart';
 
 /// 消息气泡组件
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends StatefulWidget {
   final ChatMessage message;
   final List<AgentMessage>? agentMessages;
   final bool isStreaming;
@@ -23,7 +24,30 @@ class MessageBubble extends StatelessWidget {
     this.isStreaming = false,
   });
 
+  @override
+  State<MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<MessageBubble> {
+  bool _isSpeaking = false;
+
+  ChatMessage get message => widget.message;
+  List<AgentMessage>? get agentMessages => widget.agentMessages;
+  bool get isStreaming => widget.isStreaming;
+
   bool get _isUser => message.role == MessageRole.user;
+
+  void _toggleTts(String text) {
+    if (_isSpeaking) {
+      TtsService.instance.stop();
+      setState(() => _isSpeaking = false);
+    } else {
+      setState(() => _isSpeaking = true);
+      TtsService.instance.speak(text).then((_) {
+        if (mounted) setState(() => _isSpeaking = false);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,18 +77,36 @@ class MessageBubble extends StatelessWidget {
                   _buildUserBubble(context, isDark)
                 else
                   _buildAssistantContent(context, isDark),
-                // 时间戳
+                // 时间戳 + TTS按钮
                 if (message.status == MessageStatus.completed)
                   Padding(
                     padding: const EdgeInsets.only(top: 4, left: 4),
-                    child: Text(
-                      _formatTime(message.timestamp),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _isUser
-                            ? Colors.white70
-                            : (isDark ? Colors.white38 : Colors.grey),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatTime(message.timestamp),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _isUser
+                                ? Colors.white70
+                                : (isDark ? Colors.white38 : Colors.grey),
+                          ),
+                        ),
+                        if (!_isUser && message.content.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _toggleTts(message.content),
+                            child: Icon(
+                              _isSpeaking ? Icons.stop_circle : Icons.volume_up_outlined,
+                              size: 14,
+                              color: _isSpeaking
+                                  ? Colors.blue
+                                  : (isDark ? Colors.white38 : Colors.grey),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
               ],
