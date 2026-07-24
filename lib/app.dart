@@ -13,12 +13,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:xiaosu/ui/theme/app_theme.dart';
-import 'package:xiaosu/ui/pages/home_page.dart';
-import 'package:xiaosu/ui/pages/chat_page.dart';
-import 'package:xiaosu/ui/pages/settings_page.dart';
-import 'package:xiaosu/ui/pages/skills_page.dart';
-import 'package:xiaosu/ui/pages/tasks_page.dart';
 import 'package:xiaosu/ui/pages/error_page.dart';
+
+// ─── 真实实现页面（presentation 层）──────────────────────────
+import 'package:xiaosu/presentation/chat/session_list_screen.dart';
+import 'package:xiaosu/presentation/chat/chat_screen.dart';
+import 'package:xiaosu/presentation/settings/settings_screen.dart';
+import 'package:xiaosu/presentation/settings/model_settings_screen.dart';
+import 'package:xiaosu/presentation/settings/skill_manager_screen.dart';
+import 'package:xiaosu/presentation/dashboard/dashboard_screen.dart';
+import 'package:xiaosu/presentation/plugin_store/plugin_store_screen.dart';
+import 'package:xiaosu/presentation/monitor/monitor_dashboard.dart';
+import 'package:xiaosu/presentation/workflow_editor/workflow_editor_screen.dart';
 
 /// ============================================================================
 // 小酥 APP 根 Widget
@@ -58,7 +64,7 @@ class XiaoSuApp extends ConsumerWidget {
   /// 构建全局路由配置
   GoRouter _buildRouter() {
     return GoRouter(
-      // 初始路由：首页
+      // 初始路由：会话列表（主页）
       initialLocation: '/',
 
       // 全局错误页面处理
@@ -69,42 +75,77 @@ class XiaoSuApp extends ConsumerWidget {
 
       // ─── 路由表定义 ─────────────────────────────────────────
       routes: [
-        // 首页 —— 对话列表 / 主入口
+        // 首页 —— 会话列表 / 主入口
         GoRoute(
           path: '/',
           name: 'home',
-          builder: (context, state) => const HomePage(),
+          builder: (context, state) => const SessionListScreen(),
         ),
 
-        // 对话页 —— 与 AI 进行实时对话
+        // 对话页 —— 与 AI 进行实时对话（完整版）
         GoRoute(
           path: '/chat/:conversationId',
           name: 'chat',
           builder: (context, state) {
             final conversationId = state.pathParameters['conversationId']!;
-            return ChatPage(conversationId: conversationId);
+            return ChatScreen(conversationId: conversationId);
           },
         ),
 
-        // 技能页 —— 查看和管理已注册技能
+        // 新建对话
+        GoRoute(
+          path: '/chat-new',
+          name: 'chat-new',
+          builder: (context, state) => const ChatScreen(conversationId: ''),
+        ),
+
+        // 技能管理页（完整版）
         GoRoute(
           path: '/skills',
           name: 'skills',
-          builder: (context, state) => const SkillsPage(),
+          builder: (context, state) => const SkillManagerScreen(),
         ),
 
-        // 任务页 —— 查看和管理定时任务 / 话题追踪
+        // 任务页 —— 仪表盘
         GoRoute(
           path: '/tasks',
           name: 'tasks',
-          builder: (context, state) => const TasksPage(),
+          builder: (context, state) => const DashboardScreen(),
         ),
 
-        // 设置页 —— 用户偏好、API Key 配置等
+        // 设置页（完整版）
         GoRoute(
           path: '/settings',
           name: 'settings',
-          builder: (context, state) => const SettingsPage(),
+          builder: (context, state) => const SettingsScreen(),
+        ),
+
+        // 模型设置
+        GoRoute(
+          path: '/settings/model',
+          name: 'model-settings',
+          builder: (context, state) => const ModelSettingsScreen(),
+        ),
+
+        // 工作流编辑器
+        GoRoute(
+          path: '/workflow',
+          name: 'workflow',
+          builder: (context, state) => const WorkflowEditorScreen(),
+        ),
+
+        // 插件商店
+        GoRoute(
+          path: '/plugins',
+          name: 'plugins',
+          builder: (context, state) => const PluginStoreScreen(),
+        ),
+
+        // 监控面板
+        GoRoute(
+          path: '/monitor',
+          name: 'monitor',
+          builder: (context, state) => const MonitorDashboard(),
         ),
       ],
     );
