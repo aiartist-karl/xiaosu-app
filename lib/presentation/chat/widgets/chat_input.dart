@@ -13,8 +13,8 @@ class AttachmentInfo {
   final String name;
   final String path;
   final int size;
-  final String type; // image, file
-  String? serverPath; // 上传后的服务器路径
+  final String type;
+  String? serverPath;
   bool uploading;
   bool uploaded;
 
@@ -51,7 +51,6 @@ class _ChatInputState extends State<ChatInput> {
   final FocusNode _focusNode = FocusNode();
   final List<AttachmentInfo> _attachments = [];
   final ImagePicker _imagePicker = ImagePicker();
-  final FilePicker _filePicker = FilePicker();
   bool _isUploading = false;
 
   @override
@@ -124,21 +123,24 @@ class _ChatInputState extends State<ChatInput> {
   /// 选择文件
   Future<void> _pickFile() async {
     try {
-      final List<XFile> files = await _filePicker.pickFiles(
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.any,
       );
-      for (final xfile in files) {
-        final file = File(xfile.path);
-        final size = await file.length();
-        setState(() {
-          _attachments.add(AttachmentInfo(
-            name: xfile.name,
-            path: xfile.path,
-            size: size,
-            type: 'file',
-          ));
-        });
+      
+      if (result != null) {
+        for (final platformFile in result.files) {
+          if (platformFile.path != null) {
+            setState(() {
+              _attachments.add(AttachmentInfo(
+                name: platformFile.name,
+                path: platformFile.path!,
+                size: platformFile.size,
+                type: 'file',
+              ));
+            });
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -315,7 +317,6 @@ class _ChatInputState extends State<ChatInput> {
                                 ],
                               ),
                       ),
-                      // 上传状态
                       if (att.uploading)
                         Positioned.fill(
                           child: Container(
@@ -336,7 +337,6 @@ class _ChatInputState extends State<ChatInput> {
                             child: const Icon(Icons.check, size: 12, color: Colors.white),
                           ),
                         ),
-                      // 删除按钮
                       Positioned(
                         top: -4,
                         left: -4,
@@ -344,10 +344,7 @@ class _ChatInputState extends State<ChatInput> {
                           onTap: () => _removeAttachment(index),
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
                             child: const Icon(Icons.close, size: 12, color: Colors.white),
                           ),
                         ),
@@ -362,7 +359,6 @@ class _ChatInputState extends State<ChatInput> {
           // 输入行
           Row(
             children: [
-              // 附件按钮
               GestureDetector(
                 onTap: _showAttachmentOptions,
                 child: Container(
@@ -375,8 +371,6 @@ class _ChatInputState extends State<ChatInput> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // 文本输入
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -400,16 +394,12 @@ class _ChatInputState extends State<ChatInput> {
                 ),
               ),
               const SizedBox(width: 8),
-
-              // 发送/停止按钮
               GestureDetector(
                 onTap: widget.isLoading ? widget.onStop : _handleSend,
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: widget.isLoading
-                        ? Colors.red
-                        : Theme.of(context).colorScheme.primary,
+                    color: widget.isLoading ? Colors.red : Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Icon(
@@ -421,8 +411,6 @@ class _ChatInputState extends State<ChatInput> {
               ),
             ],
           ),
-
-          // 上传状态提示
           if (_isUploading)
             Padding(
               padding: const EdgeInsets.only(top: 4),
