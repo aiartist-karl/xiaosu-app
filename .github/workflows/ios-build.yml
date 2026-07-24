@@ -21,6 +21,12 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Clean iOS build cache
+        run: flutter clean
+
+      - name: Re-fetch dependencies after clean
+        run: flutter pub get
+
       - name: Build iOS (unsigned)
         run: |
           flutter build ios --release --no-codesign
