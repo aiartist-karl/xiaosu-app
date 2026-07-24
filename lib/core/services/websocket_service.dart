@@ -46,8 +46,9 @@ class WebSocketService {
     _setState(WsConnectionState.connecting);
 
     try {
+      final wsUrl = '${AppConfig.agentWsUrl}?token=${AppConfig.agentAuthToken}';
       _channel = WebSocketChannel.connect(
-        Uri.parse(AppConfig.agentWsUrl),
+        Uri.parse(wsUrl),
       );
 
       await _channel!.ready.timeout(AppConfig.connectTimeout);
