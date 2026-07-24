@@ -82,10 +82,10 @@ class AgentApiService {
         return;
       }
 
-      // 解析SSE流（修复：使用事件ID去重）
+      // 解析SSE流（修复：基于内容去重）
       String buffer = '';
-      final Set<String> processedEventIds = {};
-      int eventCounter = 0;
+      final Set<String> processedContentHashes = {};
+      String lastContent = '';
       
       await for (final chunk in response.stream
           .transform(utf8.decoder)
@@ -119,12 +119,15 @@ class AgentApiService {
               final json = jsonDecode(dataStr) as Map<String, dynamic>;
               final msg = AgentMessage.fromSSE(json);
               
-              // 使用类型+索引生成唯一事件ID来去重
-              final eventId = '${msg.type.name}_${eventCounter++}';
-              if (processedEventIds.contains(eventId)) {
-                continue; // 跳过重复事件
+              // 基于内容去重：跳过完全相同的text_delta
+              if (msg.type.name == 'text_delta' && msg.content.isNotEmpty) {
+                final contentHash = msg.content.hashCode.toString();
+                if (processedContentHashes.contains(contentHash)) {
+                  continue; // 跳过重复内容
+                }
+                processedContentHashes.add(contentHash);
+                lastContent = msg.content;
               }
-              processedEventIds.add(eventId);
               
               yield msg;
             } catch (_) {

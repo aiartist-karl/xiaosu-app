@@ -216,12 +216,21 @@ class ChatEngine {
             break;
 
           case AgentMessageType.answer:
-            // 回答：追加内容（去重 - 检查内容是否已存在）
+            // 回答：追加内容（严格去重）
             if (agentMsg.content.isNotEmpty) {
-              // 避免重复追加相同内容
               final currentBuffer = answerBuffer.toString();
-              if (!currentBuffer.endsWith(agentMsg.content)) {
-                answerBuffer.write(agentMsg.content);
+              // 完全相同的内容跳过
+              if (currentBuffer == agentMsg.content) {
+                // 内容完全相同，说明后端重复发了整个回答，直接用当前内容
+              } else if (currentBuffer.endsWith(agentMsg.content)) {
+                // 末尾重复，不追加
+              } else {
+                // 检查是否已经在buffer中间出现过（整句重复）
+                if (currentBuffer.contains(agentMsg.content) && currentBuffer.length >= agentMsg.content.length) {
+                  // 内容已存在于buffer中，跳过
+                } else {
+                  answerBuffer.write(agentMsg.content);
+                }
               }
             }
             yield ChatMessage(
