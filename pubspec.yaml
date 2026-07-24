@@ -28,8 +28,8 @@ dependencies:
   web_socket_channel: ^2.4.0
   
   # 文件处理
-  image_picker: ^1.0.7
-  file_picker: ^1.0.0
+  image_picker: ^1.1.2
+  file_picker: ^8.1.7
   
   # UI
   flutter_markdown: ^0.6.18
