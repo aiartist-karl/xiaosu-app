@@ -3,7 +3,9 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/chat_engine.dart';
 import '../../models/chat_message.dart';
 import '../../models/agent_message.dart';
@@ -287,12 +289,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ListTile(
               leading: const Icon(Icons.content_copy),
               title: const Text('复制全部'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                final allText = _messages
+                    .map((m) => '${m.role == MessageRole.user ? "我" : "小酥"}: ${m.content}')
+                    .join('\n\n');
+                Clipboard.setData(ClipboardData(text: allText));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已复制全部对话内容')),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('设置'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                context.pushNamed('settings-full');
+              },
             ),
           ],
         ),
