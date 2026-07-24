@@ -21,6 +21,8 @@ import 'plugin_store/plugin_store_screen.dart';
 import 'monitor/monitor_dashboard.dart';
 import 'agents/agents_screen.dart';
 import 'agents/agent_task_screen.dart';
+import 'files/file_manager_screen.dart';
+import 'tools/tools_screen.dart';
 import 'projects/projects_screen.dart';
 import 'projects/project_detail_screen.dart';
 import 'projects/project_editor_screen.dart';
@@ -66,6 +68,8 @@ class AppRouter {
             return AgentTaskScreen(agentId: id);
           },
         ),
+        GoRoute(path: '/files', name: 'files', builder: (_, __) => const FileManagerScreen()),
+        GoRoute(path: '/tools', name: 'tools', builder: (_, __) => const ToolsScreen()),
         GoRoute(path: '/projects', name: 'projects', builder: (_, __) => const ProjectsScreen()),
         GoRoute(
           path: '/project/:projectId',

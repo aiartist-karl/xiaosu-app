@@ -1,5 +1,5 @@
 // ============================================================================
-// 小酥 - 聊天界面（Agent完整版）- 修复消息重复问题
+// 小酥 - 聊天界面（引用回复 + 连续发送 + 文件管理入口）
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -12,8 +12,8 @@ import '../../models/agent_message.dart';
 import 'widgets/chat_input.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/thinking_indicator.dart';
+import '../files/file_manager_screen.dart';
 
-/// 聊天界面（Agent完整版）
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
   const ChatScreen({super.key, required this.conversationId});
@@ -30,9 +30,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final Set<String> _streamingMessages = {};
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
-  
-  // 当前streaming的助手消息ID，用于精确替换
   String? _currentAssistantMsgId;
+
+  // 引用回复
+  String? _replyToContent;
+  String? _replyToAuthor;
 
   @override
   void initState() {
@@ -62,16 +64,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
+  /// 设置引用回复
+  void _setReply(String content, String author) {
+    setState(() {
+      _replyToContent = content.length > 50 ? '${content.substring(0, 50)}...' : content;
+      _replyToAuthor = author;
+    });
+  }
+
+  /// 取消引用
+  void _cancelReply() {
+    setState(() {
+      _replyToContent = null;
+      _replyToAuthor = null;
+    });
+  }
+
+  /// 发送消息 - 不阻塞连续发送
   Future<void> _sendMessage(String text, {List<String>? filePaths}) async {
     if (text.trim().isEmpty && (filePaths == null || filePaths.isEmpty)) return;
+    
+    // 不阻止连续发送，仅标记状态
     setState(() => _isLoading = true);
 
-    // 生成统一的对话ID
     final convId = widget.conversationId.isEmpty 
         ? 'conv_${DateTime.now().millisecondsSinceEpoch}'
         : widget.conversationId;
 
-    // 只添加用户消息到本地列表（引擎内部也会添加到history）
     final userMsg = ChatMessage(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       conversationId: convId,
@@ -85,47 +104,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               url: p,
             )).toList()
           : null,
+      metadata: _replyToContent != null ? {'reply_to': _replyToContent, 'reply_to_author': _replyToAuthor} : null,
     );
     
-    setState(() {
-      _messages.add(userMsg);
-    });
+    setState(() { _messages.add(userMsg); });
     _scrollToBottom();
 
+    // 清除引用状态
+    _cancelReply();
+
     try {
-      // 重置当前助手消息追踪
       _currentAssistantMsgId = null;
       final streamingMsgIds = <String>{};
 
-      // 使用流式响应 - 引擎会yield所有消息
       await for (final msg in _engine.sendMessageStream(
         conversationId: convId,
         content: text,
         filePaths: filePaths,
+        replyTo: _replyToContent,
       )) {
-        // 跳过用户消息（已经在本地添加了）
         if (msg.role == MessageRole.user) continue;
 
         setState(() {
-          // 获取Agent消息
           final agentMsgs = _engine.getAgentMessages(msg.id);
-          if (agentMsgs.isNotEmpty) {
-            _agentMessageMap[msg.id] = agentMsgs;
-          }
+          if (agentMsgs.isNotEmpty) { _agentMessageMap[msg.id] = agentMsgs; }
 
-          // 查找是否已存在此ID的消息
           final existingIdx = _messages.indexWhere((m) => m.id == msg.id);
           if (existingIdx >= 0) {
-            // 替换已有消息（streaming更新）
             _messages[existingIdx] = msg;
           } else {
-            // 新消息 - 添加到列表
             _messages.add(msg);
             streamingMsgIds.add(msg.id);
             _currentAssistantMsgId = msg.id;
           }
 
-          // 更新streaming状态
           if (msg.status == MessageStatus.streaming) {
             _streamingMessages.add(msg.id);
           } else {
@@ -166,24 +178,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             const SizedBox(width: 8),
             if (_isLoading)
               Container(
-                width: 8,
-                height: 8,
+                width: 8, height: 8,
                 decoration: BoxDecoration(
                   color: Colors.green,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.green.withOpacity(0.5),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.5), blurRadius: 4, spreadRadius: 1)],
                 ),
               ),
           ],
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.folder_outlined),
+            tooltip: '文件管理',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FileManagerScreen())),
+          ),
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () => _showMenu(context),
@@ -192,6 +202,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
       body: Column(
         children: [
+          // 引用预览条
+          if (_replyToContent != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              child: Row(
+                children: [
+                  Icon(Icons.format_quote, size: 16, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '回复 $_replyToAuthor：',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
+                          ),
+                          TextSpan(
+                            text: _replyToContent,
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: _cancelReply,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
           // 消息列表
           Expanded(
             child: _messages.isEmpty
@@ -204,11 +248,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       final msg = _messages[index];
                       final agentMsgs = _agentMessageMap[msg.id];
                       final isStreaming = _streamingMessages.contains(msg.id);
-
                       return MessageBubble(
                         message: msg,
                         agentMessages: agentMsgs,
                         isStreaming: isStreaming,
+                        onReply: (content, author) => _setReply(content, author),
                       );
                     },
                   ),
@@ -232,14 +276,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           const SizedBox(height: 16),
           Text('你好，我是小酥！', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          Text(
-            '有什么可以帮你的吗？',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-          ),
+          Text('有什么可以帮你的吗？', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
           const SizedBox(height: 24),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 8, runSpacing: 8,
             children: [
               _suggestionChip('🎨 生成一张图片'),
               _suggestionChip('🔍 帮我搜索'),
@@ -262,10 +302,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               children: [
                 Icon(Icons.psychology, size: 14, color: Colors.green[700]),
                 const SizedBox(width: 6),
-                Text(
-                  'Agent模式已启用',
-                  style: TextStyle(fontSize: 12, color: Colors.green[700]),
-                ),
+                Text('Agent模式已启用', style: TextStyle(fontSize: 12, color: Colors.green[700])),
               ],
             ),
           ),
@@ -275,10 +312,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Widget _suggestionChip(String label) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () => _sendMessage(label.substring(2).trim()),
-    );
+    return ActionChip(label: Text(label), onPressed: () => _sendMessage(label.substring(2).trim()));
   }
 
   void _showMenu(BuildContext context) {
@@ -289,19 +323,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.folder),
+              title: const Text('文件管理'),
+              subtitle: const Text('浏览和下载服务器文件'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const FileManagerScreen()));
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_outline),
               title: const Text('清空对话'),
               onTap: () {
                 Navigator.pop(context);
-                final convId = widget.conversationId.isEmpty 
-                    ? 'conv_${DateTime.now().millisecondsSinceEpoch}'
-                    : widget.conversationId;
+                final convId = widget.conversationId.isEmpty ? 'conv_${DateTime.now().millisecondsSinceEpoch}' : widget.conversationId;
                 _engine.clearHistory(convId);
-                setState(() {
-                  _messages.clear();
-                  _agentMessageMap.clear();
-                  _streamingMessages.clear();
-                });
+                setState(() { _messages.clear(); _agentMessageMap.clear(); _streamingMessages.clear(); });
               },
             ),
             ListTile(
@@ -309,13 +346,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               title: const Text('复制全部'),
               onTap: () {
                 Navigator.pop(context);
-                final allText = _messages
-                    .map((m) => '${m.role == MessageRole.user ? "我" : "小酥"}: ${m.content}')
-                    .join('\n\n');
+                final allText = _messages.map((m) => '${m.role == MessageRole.user ? "我" : "小酥"}: ${m.content}').join('\n\n');
                 Clipboard.setData(ClipboardData(text: allText));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已复制全部对话内容')),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已复制全部对话内容')));
               },
             ),
             ListTile(
@@ -323,7 +356,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               title: const Text('设置'),
               onTap: () {
                 Navigator.pop(context);
-                // 使用路径导航，避免命名路由冲突
                 context.push('/settings');
               },
             ),

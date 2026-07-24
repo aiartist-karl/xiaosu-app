@@ -1,5 +1,5 @@
 // ============================================================================
-// 小酥 - 对话引擎（支持Agent模式 + 直连模式 + 多会话管理）
+// 小酥 - 对话引擎（支持Agent模式 + 直连模式 + 多会话 + 引用回复）
 // ============================================================================
 
 import 'dart:async';
@@ -15,7 +15,6 @@ import 'common/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show VoidCallback;
 
-/// 对话引擎 - 管理多轮对话、上下文和LLM交互
 class ChatEngine {
   static final ChatEngine instance = ChatEngine._();
   ChatEngine._();
@@ -50,16 +49,23 @@ class ChatEngine {
   List<String> get conversationIds => _histories.keys.toList();
   Map<String, int> get conversationSummary => _histories.map((k, v) => MapEntry(k, v.length));
 
-  /// 发送消息（流式）
+  /// 发送消息（流式） - 支持引用回复
   Stream<ChatMessage> sendMessageStream({
     required String conversationId,
     required String content,
     String? modelId,
     double temperature = 0.7,
     List<String>? filePaths,
+    String? replyTo,
   }) async* {
     _histories.putIfAbsent(conversationId, () => []);
     final history = _histories[conversationId]!;
+
+    // 如果有引用内容，拼接到消息前面
+    String finalContent = content;
+    if (replyTo != null && replyTo.isNotEmpty) {
+      finalContent = '[引用回复] $content';
+    }
 
     final userMsg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -67,24 +73,25 @@ class ChatEngine {
       content: content,
       role: MessageRole.user,
       timestamp: DateTime.now(),
+      metadata: replyTo != null && replyTo.isNotEmpty ? {'reply_to': replyTo} : null,
     );
     history.add(userMsg);
     yield userMsg;
     _updateConversationMetadata(conversationId, content);
 
     if (AppConfig.useAgentMode) {
-      yield* _sendAgentStream(conversationId: conversationId, content: content, history: history, filePaths: filePaths);
+      yield* _sendAgentStream(conversationId: conversationId, content: finalContent, history: history, filePaths: filePaths, replyTo: replyTo);
     } else {
-      yield* _sendDirectStream(conversationId: conversationId, content: content, history: history, modelId: modelId, temperature: temperature);
+      yield* _sendDirectStream(conversationId: conversationId, content: finalContent, history: history, modelId: modelId, temperature: temperature);
     }
   }
 
-  /// Agent模式 - 正确处理SSE事件流
   Stream<ChatMessage> _sendAgentStream({
     required String conversationId,
     required String content,
     required List<ChatMessage> history,
     List<String>? filePaths,
+    String? replyTo,
   }) async* {
     final msgId = 'agent_${DateTime.now().millisecondsSinceEpoch}';
     _agentMessages[msgId] = [];
@@ -99,6 +106,7 @@ class ChatEngine {
         message: content,
         history: _buildApiHistory(history),
         filePaths: filePaths,
+        replyTo: replyTo,
       )) {
         if (isCompleted) continue;
         _agentMessages[msgId]!.add(agentMsg);
@@ -106,7 +114,6 @@ class ChatEngine {
 
         switch (agentMsg.type) {
           case AgentMessageType.thinking:
-            // 思考内容 - 通过metadata通知UI显示
             yield ChatMessage(
               id: msgId,
               conversationId: conversationId,
@@ -119,7 +126,6 @@ class ChatEngine {
             break;
 
           case AgentMessageType.toolCall:
-            // 工具调用 - 去重防止同一个工具调用重复推送
             final callId = agentMsg.callId ?? agentMsg.id;
             if (!processedToolCallIds.contains(callId)) {
               processedToolCallIds.add(callId);
@@ -136,7 +142,6 @@ class ChatEngine {
             break;
 
           case AgentMessageType.toolResult:
-            // 工具结果 - 更新状态
             yield ChatMessage(
               id: msgId,
               conversationId: conversationId,
@@ -149,7 +154,6 @@ class ChatEngine {
             break;
 
           case AgentMessageType.answer:
-            // 文本增量 - 直接追加（后端发送的是text_delta增量内容）
             if (agentMsg.content.isNotEmpty) {
               answerBuffer.write(agentMsg.content);
             }
@@ -177,60 +181,42 @@ class ChatEngine {
             isCompleted = true;
             if (answerBuffer.isNotEmpty) {
               history.add(ChatMessage(
-                id: msgId,
-                conversationId: conversationId,
-                content: answerBuffer.toString(),
-                role: MessageRole.assistant,
-                timestamp: DateTime.now(),
-                status: MessageStatus.error,
+                id: msgId, conversationId: conversationId, content: answerBuffer.toString(),
+                role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.error,
                 metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
               ));
             }
             break;
 
           case AgentMessageType.done:
-            // 完成信号 - 不追加内容
             isCompleted = true;
             break;
         }
       }
 
-      // 流结束 - 保存完整回复到历史
-      if (answerBuffer.isNotEmpty && !isCompleted) {
-        isCompleted = true;
-      }
+      if (answerBuffer.isNotEmpty && !isCompleted) { isCompleted = true; }
       
       if (answerBuffer.isNotEmpty) {
         final alreadyAdded = history.any((m) => m.id == msgId);
         if (!alreadyAdded) {
           history.add(ChatMessage(
-            id: msgId,
-            conversationId: conversationId,
-            content: answerBuffer.toString(),
-            role: MessageRole.assistant,
-            timestamp: DateTime.now(),
-            status: MessageStatus.completed,
+            id: msgId, conversationId: conversationId, content: answerBuffer.toString(),
+            role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.completed,
             metadata: {'agent_messages': _agentMessages[msgId]!.map((m) => m.id).toList()},
           ));
         }
       }
     } catch (e) {
       final errorMsg = ChatMessage(
-        id: msgId,
-        conversationId: conversationId,
+        id: msgId, conversationId: conversationId,
         content: '⚠️ 错误：${e.toString()}',
-        role: MessageRole.assistant,
-        timestamp: DateTime.now(),
-        status: MessageStatus.error,
+        role: MessageRole.assistant, timestamp: DateTime.now(), status: MessageStatus.error,
       );
-      if (!history.any((m) => m.id == msgId)) {
-        history.add(errorMsg);
-      }
+      if (!history.any((m) => m.id == msgId)) { history.add(errorMsg); }
       yield errorMsg;
     }
   }
 
-  /// 直连模式
   Stream<ChatMessage> _sendDirectStream({
     required String conversationId,
     required String content,
