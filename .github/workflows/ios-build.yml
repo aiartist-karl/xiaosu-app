@@ -27,22 +27,26 @@ jobs:
           rm -rf ios/
           flutter create --platforms=ios --project-name=xiaosu --org=com.xiaosu .
           flutter pub get
-          
-          # Set dummy development team for unsigned build
-          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = "";/' ios/Runner.xcodeproj/project.pbxproj || true
+
+      - name: Configure unsigned build
+        run: |
+          # Patch project.pbxproj to remove code signing requirement
+          PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+          # Add CODE_SIGNING_ALLOWED=NO to all build configurations
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "";/g' "$PBXPROJ" || true
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";/g' "$PBXPROJ" || true
+          # Ensure development team is empty
+          sed -i '' 's/DEVELOPMENT_TEAM = [A-Z0-9]*;/DEVELOPMENT_TEAM = "";/g' "$PBXPROJ" || true
 
       - name: Build iOS (unsigned)
         run: |
-          # Use xcodebuild with explicit no-signing settings
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace             -scheme Runner             -configuration Release             -sdk iphoneos             -derivedDataPath ../build/ios             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             CODE_SIGN_IDENTITY=""             COMPILER_INDEX_STORE_ENABLE=NO
-          cd ..
+          flutter build ios --release --no-codesign
 
       - name: Package IPA
         if: success()
         run: |
           mkdir -p Payload
-          cp -r build/ios/Build/Products/Release-iphoneos/Runner.app Payload/
+          cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r xiaosu-ios-unsigned.ipa Payload
 
       - name: Upload IPA artifact
