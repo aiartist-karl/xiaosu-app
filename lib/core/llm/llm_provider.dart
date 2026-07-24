@@ -1,332 +1,228 @@
-/// ============================================================================
-/// 小酥 AI 助手 — LLM Provider 抽象接口
-/// ============================================================================
-/// 本文件定义 LLM 调用层的抽象接口和数据模型，包括：
-///   - Message 层次模型 (SystemMessage / UserMessage / AssistantMessage / ToolMessage)
-///   - 流式响应模型 (ChatChunk / ChatResponse)
-///   - FunctionCall 模型
-///   - MemoryStrategy 枚举
-///   - LLMProvider 抽象类
-/// ============================================================================
+// ============================================================================
+// 小酥 - LLM Provider 基础接口 + DeepSeek直连集成
+// ============================================================================
 
-import '../common/models.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../config/app_config.dart';
 
-// ———————————————————————————————— 消息模型 ————————————————————————————————
-
-/// 消息 sealed 基类
-///
-/// 所有发送给 LLM 的消息都继承自此类，使用 sealed class 确保
-/// pattern matching 的完备性检查。
-sealed class LlmMessage {
-  /// 消息角色标识
-  String get role;
-
-  /// 消息文本内容
-  String get content;
-
-  /// 转为 OpenAI API 格式的 Map
-  Map<String, dynamic> toMap();
-}
-
-/// 系统消息 — 设定 LLM 角色和行为边界
-class SystemMessage extends LlmMessage {
-  @override
+/// LLM流式响应块
+class LLMStreamChunk {
   final String content;
-
-  SystemMessage(this.content);
-
-  @override
-  String get role => 'system';
-
-  @override
-  Map<String, dynamic> toMap() => {'role': role, 'content': content};
-}
-
-/// 用户消息 — 来自用户的输入
-class UserMessage extends LlmMessage {
-  @override
-  final String content;
-
-  UserMessage(this.content);
-
-  @override
-  String get role => 'user';
-
-  @override
-  Map<String, dynamic> toMap() => {'role': role, 'content': content};
-}
-
-/// 助手消息 — LLM 的回复
-class AssistantMessage extends LlmMessage {
-  @override
-  final String content;
-
-  /// 助手发起的工具调用列表（Function Calling）
-  final List<FunctionCall> toolCalls;
-
-  /// 完成原因：stop / tool_calls / length / content_filter
+  final bool isDone;
   final String? finishReason;
+  final int? tokenCount;
 
-  /// 本次回复消耗的 token 数
-  final int? usageTokens;
-
-  AssistantMessage({
+  const LLMStreamChunk({
     required this.content,
-    this.toolCalls = const [],
+    this.isDone = false,
     this.finishReason,
-    this.usageTokens,
+    this.tokenCount,
   });
-
-  @override
-  String get role => 'assistant';
-
-  /// 是否包含工具调用
-  bool get hasToolCalls => toolCalls.isNotEmpty;
-
-  @override
-  Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
-      'role': role,
-      'content': content,
-    };
-    if (toolCalls.isNotEmpty) {
-      map['tool_calls'] = toolCalls.map((tc) => tc.toMap()).toList();
-    }
-    return map;
-  }
 }
 
-/// 工具结果消息 — 工具执行后回传给 LLM 的结果
-class ToolMessage extends LlmMessage {
-  @override
+/// LLM完成结果
+class LLMCompletionResult {
   final String content;
-
-  /// 关联的工具调用 ID
-  final String toolCallId;
-
-  /// 工具名称
-  final String name;
-
-  ToolMessage({
-    required this.content,
-    required this.toolCallId,
-    required this.name,
-  });
-
-  @override
-  String get role => 'tool';
-
-  @override
-  Map<String, dynamic> toMap() => {
-        'role': role,
-        'content': content,
-        'tool_call_id': toolCallId,
-        'name': name,
-      };
-}
-
-// ———————————————————————————————— Function Call 模型 ————————————————————————————————
-
-/// 函数调用
-///
-/// 表示 LLM 返回的一次函数/工具调用请求。
-class FunctionCall {
-  /// 调用 ID，用于关联后续的 ToolMessage
-  final String id;
-
-  /// 函数名称
-  final String name;
-
-  /// 函数参数（JSON 字符串）
-  final String arguments;
-
-  const FunctionCall({
-    required this.id,
-    required this.name,
-    required this.arguments,
-  });
-
-  /// 解析参数为 Map
-  Map<String, dynamic> get parsedArguments {
-    try {
-      // 注意：实际项目中应使用 dart:convert 的 jsonDecode
-      // 此处简化处理，在完整项目中需导入 import 'dart:convert';
-      return _parseJson(arguments);
-    } catch (_) {
-      return {};
-    }
-  }
-
-  /// 简易 JSON 解析（实际项目请使用 dart:convert）
-  static Map<String, dynamic> _parseJson(String json) {
-    // 占位：实际项目使用 jsonDecode
-    return {};
-  }
-
-  /// 转为 API 格式
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'type': 'function',
-        'function': {
-          'name': name,
-          'arguments': arguments,
-        },
-      };
-
-  @override
-  String toString() => 'FunctionCall(id: $id, name: $name, args: $arguments)';
-}
-
-// ———————————————————————————————— 响应模型 ————————————————————————————————
-
-/// 流式响应块
-///
-/// SSE 流中每个 data 事件解析后的中间结果。
-/// 增量内容，需要调用方自行拼接。
-class ChatChunk {
-  /// 增量文本内容
-  final String deltaContent;
-
-  /// 增量工具调用（可能只有部分参数）
-  final List<FunctionCall> deltaToolCalls;
-
-  /// 完成原因（仅最后一个 chunk 有值）
-  final String? finishReason;
-
-  /// 原始数据（调试用）
-  final Map<String, dynamic>? rawData;
-
-  const ChatChunk({
-    this.deltaContent = '',
-    this.deltaToolCalls = const [],
-    this.finishReason,
-    this.rawData,
-  });
-
-  /// 是否为终止块
-  bool get isDone => finishReason != null;
-}
-
-/// 完整对话响应
-///
-/// 非流式调用返回的完整结果。
-class ChatResponse {
-  /// 助手回复的完整消息
-  final AssistantMessage message;
-
-  /// 本次请求的 token 用量
-  final TokenUsage usage;
-
-  /// 原始响应数据（调试用）
-  final Map<String, dynamic>? rawData;
-
-  const ChatResponse({
-    required this.message,
-    required this.usage,
-    this.rawData,
-  });
-}
-
-/// Token 用量统计
-class TokenUsage {
-  /// 提示词 token 数
+  final String model;
   final int promptTokens;
-
-  /// 补全 token 数
   final int completionTokens;
-
-  /// 总 token 数
   final int totalTokens;
+  final double latencyMs;
 
-  const TokenUsage({
-    required this.promptTokens,
-    required this.completionTokens,
-    required this.totalTokens,
+  const LLMCompletionResult({
+    required this.content,
+    required this.model,
+    this.promptTokens = 0,
+    this.completionTokens = 0,
+    this.totalTokens = 0,
+    this.latencyMs = 0,
   });
 
-  const TokenUsage.empty()
-      : promptTokens = 0,
-        completionTokens = 0,
-        totalTokens = 0;
+  int get totalTokensSum => totalTokens > 0 ? totalTokens : promptTokens + completionTokens;
 }
 
-// ———————————————————————————————— 记忆策略 ————————————————————————————————
+/// 向后兼容的类型别名
+typedef LlmProvider = BaseLlmProvider;
 
-/// 记忆策略枚举
-///
-/// 决定对话历史如何被管理和裁剪，以适配不同模型的上下文窗口。
-enum MemoryStrategy {
-  /// 滑动窗口 — 只保留最近 N 轮对话
-  slidingWindow,
-
-  /// Token 截断 — 按 token 预算截断较早的消息
-  tokenBudget,
-
-  /// 摘要压缩 — 将旧对话压缩为摘要后拼入系统提示
-  summaryCompression,
-
-  /// RAG 检索 — 从长期记忆中检索相关片段注入上下文
-  ragRetrieval,
-
-  /// 混合策略 — 结合多种策略
-  hybrid,
-}
-
-// ———————————————————————————————— LLM Provider 抽象类 ————————————————————————————————
-
-/// LLM 提供者抽象接口
-///
-/// 所有 LLM 后端（OpenAI、通义千问、本地模型等）都必须实现此接口。
-/// 支持流式和非流式两种调用方式，以及 Function Calling。
-abstract class LlmProvider {
-  /// Provider 唯一标识，如 "openai" / "qwen" / "local"
+/// LLM Provider 基础接口
+abstract class BaseLlmProvider {
+  /// Provider唯一标识
   String get providerId;
 
-  /// 当前使用的模型 ID，如 "gpt-4o" / "qwen-max"
+  /// 模型名称
   String get modelId;
 
-  /// 模型最大上下文 token 数
-  int get maxContextTokens;
-
-  /// 是否支持 Function Calling
-  bool get supportsFunctionCalling;
-
-  /// 是否支持流式输出
-  bool get supportsStreaming;
-
-  /// 当前 Provider 是否可用（检查 API Key、网络等）
-  bool get isAvailable;
-
-  /// 非流式对话调用
-  ///
-  /// [messages] 对话历史
-  /// [tools] 可用工具列表（可选）
-  /// [temperature] 温度参数 0.0~2.0
-  /// [maxTokens] 最大输出 token 数
-  /// [stop] 停止词列表
-  Future<ChatResponse> chat({
-    required List<LlmMessage> messages,
-    List<ToolDeclaration>? tools,
+  /// 发送普通请求
+  Future<LLMCompletionResult> complete({
+    required List<Map<String, dynamic>> messages,
     double temperature = 0.7,
-    int? maxTokens,
-    List<String>? stop,
+    int maxTokens = 2048,
+    String? systemPrompt,
+    Map<String, dynamic>? extraParams,
   });
 
-  /// 流式对话调用
-  ///
-  /// 返回 Stream<ChatChunk>，每个元素为增量响应块。
-  /// 调用方需要自行拼接 deltaContent 得到完整回复。
-  Stream<ChatChunk> streamChat({
-    required List<LlmMessage> messages,
-    List<ToolDeclaration>? tools,
+  /// 发送流式请求
+  Stream<LLMStreamChunk> completeStream({
+    required List<Map<String, dynamic>> messages,
     double temperature = 0.7,
-    int? maxTokens,
-    List<String>? stop,
+    int maxTokens = 2048,
+    String? systemPrompt,
+    Map<String, dynamic>? extraParams,
   });
 
-  /// 释放资源（关闭连接、清理缓存等）
-  Future<void> dispose();
+  /// 关闭连接
+  Future<void> dispose() async {}
+}
+
+/// DeepSeek Provider（直连）
+class AliyunDeepSeekProvider extends BaseLlmProvider {
+  static final AliyunDeepSeekProvider instance = AliyunDeepSeekProvider._();
+  AliyunDeepSeekProvider._();
+
+  final http.Client _client = http.Client();
 
   @override
-  String toString() => 'LlmProvider($providerId/$modelId)';
+  String get providerId => 'deepseek';
+
+  @override
+  String get modelId => AppConfig.llmModel;
+
+  String get _endpoint => AppConfig.llmEndpoint;
+
+  String get _apiKey => AppConfig.llmApiKey;
+
+  @override
+  Future<LLMCompletionResult> complete({
+    required List<Map<String, dynamic>> messages,
+    double temperature = 0.7,
+    int maxTokens = 2048,
+    String? systemPrompt,
+    Map<String, dynamic>? extraParams,
+  }) async {
+    final allMessages = <Map<String, dynamic>>[];
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      allMessages.add({'role': 'system', 'content': systemPrompt});
+    }
+    allMessages.addAll(messages);
+
+    final body = {
+      'model': modelId,
+      'messages': allMessages,
+      'temperature': temperature,
+      'max_tokens': maxTokens,
+      'stream': false,
+      ...?extraParams,
+    };
+
+    final startTime = DateTime.now();
+    final response = await _client.post(
+      Uri.parse(_endpoint),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+      },
+      body: jsonEncode(body),
+    );
+
+    final latency = DateTime.now().difference(startTime).inMilliseconds.toDouble();
+
+    if (response.statusCode != 200) {
+      throw Exception('LLM请求失败: ${response.statusCode} ${response.body}');
+    }
+
+    final data = jsonDecode(response.body);
+    final choice = (data['choices'] as List).first;
+    final usage = data['usage'] as Map<String, dynamic>?;
+
+    return LLMCompletionResult(
+      content: choice['message']['content'] as String,
+      model: data['model'] as String? ?? modelId,
+      promptTokens: usage?['prompt_tokens'] as int? ?? 0,
+      completionTokens: usage?['completion_tokens'] as int? ?? 0,
+      totalTokens: usage?['total_tokens'] as int? ?? 0,
+      latencyMs: latency,
+    );
+  }
+
+  @override
+  Stream<LLMStreamChunk> completeStream({
+    required List<Map<String, dynamic>> messages,
+    double temperature = 0.7,
+    int maxTokens = 2048,
+    String? systemPrompt,
+    Map<String, dynamic>? extraParams,
+  }) async* {
+    final allMessages = <Map<String, dynamic>>[];
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      allMessages.add({'role': 'system', 'content': systemPrompt});
+    }
+    allMessages.addAll(messages);
+
+    final body = {
+      'model': modelId,
+      'messages': allMessages,
+      'temperature': temperature,
+      'max_tokens': maxTokens,
+      'stream': true,
+      ...?extraParams,
+    };
+
+    final request = http.Request('POST', Uri.parse(_endpoint));
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $_apiKey',
+    });
+    request.body = jsonEncode(body);
+
+    final response = await _client.send(request);
+
+    final controller = StreamController<LLMStreamChunk>();
+
+    response.stream.transform(utf8.decoder).listen(
+      (data) {
+        // 解析SSE格式
+        final lines = data.split('\n');
+        for (final line in lines) {
+          if (line.startsWith('data: ')) {
+            final jsonStr = line.substring(6).trim();
+            if (jsonStr == '[DONE]') {
+              controller.add(const LLMStreamChunk(content: '', isDone: true));
+              continue;
+            }
+            try {
+              final chunk = jsonDecode(jsonStr);
+              final choices = chunk['choices'] as List?;
+              if (choices != null && choices.isNotEmpty) {
+                final delta = choices.first['delta'];
+                final content = delta?['content'] as String? ?? '';
+                final finishReason = choices.first['finish_reason'] as String?;
+                controller.add(LLMStreamChunk(
+                  content: content,
+                  isDone: finishReason != null,
+                  finishReason: finishReason,
+                ));
+              }
+            } catch (_) {
+              // 忽略解析错误
+            }
+          }
+        }
+      },
+      onError: (error) {
+        controller.addError(error);
+      },
+      onDone: () {
+        controller.close();
+      },
+    );
+
+    yield* controller.stream;
+  }
+
+  @override
+  Future<void> dispose() async {
+    _client.close();
+  }
 }

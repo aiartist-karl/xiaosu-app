@@ -1,0 +1,107 @@
+﻿2026-07-24T00:34:08.5418590Z ##[group]Run flutter build ios --release --no-codesign --verbose 2>&1 | tail -100
+2026-07-24T00:34:08.5419070Z [36;1mflutter build ios --release --no-codesign --verbose 2>&1 | tail -100[0m
+2026-07-24T00:34:08.5455230Z shell: /bin/bash -e {0}
+2026-07-24T00:34:08.5455400Z env:
+2026-07-24T00:34:08.5455690Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:34:08.5456020Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:34:08.5456230Z ##[endgroup]
+2026-07-24T00:34:54.8148120Z                          "_value" : "DVTTextDocumentLocation"
+2026-07-24T00:34:54.8162900Z                        },
+2026-07-24T00:34:54.8251420Z                        "url" : {
+2026-07-24T00:34:54.8265850Z                          "_type" : {
+2026-07-24T00:34:54.8266550Z                            "_name" : "String"
+2026-07-24T00:34:54.8267450Z                          },
+2026-07-24T00:34:54.8271890Z                          "_value" : "file:\/\/\/Users\/runner\/.pub-cache\/hosted\/pub.dev\/sqlite3_flutter_libs-0.5.42\/darwin\/sqlite3_flutter_libs\/Sources\/sqlite3_flutter_libs\/Sqlite3FlutterLibsPlugin.swift#EndingColumnNumber=9&EndingLineNumber=3&StartingColumnNumber=9&StartingLineNumber=3&Timestamp=806546081.794009"
+2026-07-24T00:34:54.8276820Z                        }
+2026-07-24T00:34:54.8277550Z                      },
+2026-07-24T00:34:54.8278150Z                      "issueType" : {
+2026-07-24T00:34:54.8279040Z                        "_type" : {
+2026-07-24T00:34:54.8279810Z                          "_name" : "String"
+2026-07-24T00:34:54.8280700Z                        },
+2026-07-24T00:34:54.8281480Z                        "_value" : "Swift Compiler Error"
+2026-07-24T00:34:54.8300070Z                      },
+2026-07-24T00:34:54.8300810Z                      "message" : {
+2026-07-24T00:34:54.8303670Z                        "_type" : {
+2026-07-24T00:34:54.8305620Z                          "_name" : "String"
+2026-07-24T00:34:54.8306180Z                        },
+2026-07-24T00:34:54.8306910Z                        "_value" : "Unable to resolve module dependency: 'Flutter'\n  import Flutter\n         ^"
+2026-07-24T00:34:54.8307740Z                      }
+2026-07-24T00:34:54.8308330Z                    }
+2026-07-24T00:34:54.8308770Z                  ]
+2026-07-24T00:34:54.8309140Z                }
+2026-07-24T00:34:54.8309960Z              },
+2026-07-24T00:34:54.8310700Z              "metadataRef" : {
+2026-07-24T00:34:54.8311500Z                "_type" : {
+2026-07-24T00:34:54.8312070Z                  "_name" : "Reference"
+2026-07-24T00:34:54.8313780Z                },
+2026-07-24T00:34:54.8314120Z                "id" : {
+2026-07-24T00:34:54.8314600Z                  "_type" : {
+2026-07-24T00:34:54.8315180Z                    "_name" : "String"
+2026-07-24T00:34:54.8315770Z                  },
+2026-07-24T00:34:54.8318500Z                  "_value" : "0~-uHYTbpo7EhAtAcKxF-G6qCqx2wgNDIfGd5dNmbRKWW3Wi0bz2RCM99SgtGEnGkiDixJiD-YZx1txeCEJhU9GQ=="
+2026-07-24T00:34:54.8319270Z                },
+2026-07-24T00:34:54.8319730Z                "targetType" : {
+2026-07-24T00:34:54.8320440Z                  "_type" : {
+2026-07-24T00:34:54.8320950Z                    "_name" : "TypeDefinition"
+2026-07-24T00:34:54.8321830Z                  },
+2026-07-24T00:34:54.8322150Z                  "name" : {
+2026-07-24T00:34:54.8322970Z                    "_type" : {
+2026-07-24T00:34:54.8323550Z                      "_name" : "String"
+2026-07-24T00:34:54.8324290Z                    },
+2026-07-24T00:34:54.8324800Z                    "_value" : "ActionsInvocationMetadata"
+2026-07-24T00:34:54.8325420Z                  }
+2026-07-24T00:34:54.8325880Z                }
+2026-07-24T00:34:54.8326610Z              },
+2026-07-24T00:34:54.8327040Z              "metrics" : {
+2026-07-24T00:34:54.8327480Z                "_type" : {
+2026-07-24T00:34:54.8327950Z                  "_name" : "ResultMetrics"
+2026-07-24T00:34:54.8328390Z                },
+2026-07-24T00:34:54.8328830Z                "errorCount" : {
+2026-07-24T00:34:54.8329580Z                  "_type" : {
+2026-07-24T00:34:54.8336840Z                    "_name" : "Int"
+2026-07-24T00:34:54.8337500Z                  },
+2026-07-24T00:34:54.8338060Z                  "_value" : "2"
+2026-07-24T00:34:54.8338690Z                }
+2026-07-24T00:34:54.8339020Z              }
+2026-07-24T00:34:54.8339470Z            }
+2026-07-24T00:34:54.8340080Z [   +7 ms] Failed to build iOS app
+2026-07-24T00:34:54.8340920Z [  +18 ms] Swift Compiler Error (Xcode): Unable to resolve module dependency: 'Flutter'
+2026-07-24T00:34:54.8341590Z              import Flutter
+2026-07-24T00:34:54.8341990Z                     ^
+2026-07-24T00:34:54.8342590Z            /Users/runner/.pub-cache/hosted/pub.dev/url_launcher_ios-6.3.3/ios/url_launcher_ios/Sources/url_launcher_ios/messages.g.swift:9:9
+2026-07-24T00:34:54.8343170Z 
+2026-07-24T00:34:54.8343510Z [   +1 ms] Swift Compiler Error (Xcode): Unable to resolve module dependency: 'Flutter'
+2026-07-24T00:34:54.8343980Z              import Flutter
+2026-07-24T00:34:54.8344810Z                     ^
+2026-07-24T00:34:54.8345540Z            /Users/runner/.pub-cache/hosted/pub.dev/sqlite3_flutter_libs-0.5.42/darwin/sqlite3_flutter_libs/Sources/sqlite3_flutter_libs/Sqlite3FlutterLibsPlugin.swift:3:9
+2026-07-24T00:34:54.8346230Z 
+2026-07-24T00:34:54.8346440Z [   +2 ms] "flutter ios" took 46,134ms.
+2026-07-24T00:34:54.8346890Z [   +2 ms] Encountered error while building for device.
+2026-07-24T00:34:54.8347740Z [        ] 
+2026-07-24T00:34:54.8348390Z            #0      throwToolExit (package:flutter_tools/src/base/common.dart:10:3)
+2026-07-24T00:34:54.8349200Z            #1      _BuildIOSSubCommand.runCommand (package:flutter_tools/src/commands/build_ios.dart:722:7)
+2026-07-24T00:34:54.8350320Z            <asynchronous suspension>
+2026-07-24T00:34:54.8352800Z            #2      FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1408:27)
+2026-07-24T00:34:54.8353990Z            <asynchronous suspension>
+2026-07-24T00:34:54.8354590Z            #3      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:153:19)
+2026-07-24T00:34:54.8355230Z            <asynchronous suspension>
+2026-07-24T00:34:54.8355600Z            #4      CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+2026-07-24T00:34:54.8356060Z            <asynchronous suspension>
+2026-07-24T00:34:54.8356580Z            #5      FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:420:9)
+2026-07-24T00:34:54.8357300Z            <asynchronous suspension>
+2026-07-24T00:34:54.8357760Z            #6      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:153:19)
+2026-07-24T00:34:54.8358350Z            <asynchronous suspension>
+2026-07-24T00:34:54.8358840Z            #7      FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:364:5)
+2026-07-24T00:34:54.8359360Z            <asynchronous suspension>
+2026-07-24T00:34:54.8359780Z            #8      run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:130:9)
+2026-07-24T00:34:54.8360300Z            <asynchronous suspension>
+2026-07-24T00:34:54.8360840Z            #9      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:153:19)
+2026-07-24T00:34:54.8361270Z            <asynchronous suspension>
+2026-07-24T00:34:54.8361650Z            #10     main (package:flutter_tools/executable.dart:93:3)
+2026-07-24T00:34:54.8361980Z            <asynchronous suspension>
+2026-07-24T00:34:54.8362160Z 
+2026-07-24T00:34:54.8362170Z 
+2026-07-24T00:34:54.8362300Z [        ] ensureAnalyticsSent: 0ms
+2026-07-24T00:34:54.8362560Z [        ] Running 2 shutdown hooks
+2026-07-24T00:34:54.8362870Z [        ] Shutdown hooks complete
+2026-07-24T00:34:54.8363150Z [        ] exiting with code 1

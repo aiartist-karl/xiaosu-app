@@ -1,0 +1,24 @@
+﻿2026-07-24T00:34:08.1855210Z ##[group]Run # Ensure Flutter.xcframework is in place
+2026-07-24T00:34:08.1855620Z [36;1m# Ensure Flutter.xcframework is in place[0m
+2026-07-24T00:34:08.1856030Z [36;1mFLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)[0m
+2026-07-24T00:34:08.1856510Z [36;1mif [ -n "$FLUTTER_CACHE" ] && [ ! -d "ios/Flutter/Flutter.xcframework" ]; then[0m
+2026-07-24T00:34:08.1856860Z [36;1m  echo "Copying Flutter.xcframework from cache..."[0m
+2026-07-24T00:34:08.1857200Z [36;1m  cp -r "$FLUTTER_CACHE" ios/Flutter/Flutter.xcframework[0m
+2026-07-24T00:34:08.1857530Z [36;1mfi[0m
+2026-07-24T00:34:08.1857720Z [36;1m# Also check for it in the flutter SDK bin/cache[0m
+2026-07-24T00:34:08.1858020Z [36;1mif [ ! -d "ios/Flutter/Flutter.xcframework" ]; then[0m
+2026-07-24T00:34:08.1858340Z [36;1m  echo "Looking for Flutter.xcframework in FLUTTER_ROOT..."[0m
+2026-07-24T00:34:08.1858730Z [36;1m  ls -la $FLUTTER_ROOT/bin/cache/artifacts/engine/ios/ 2>/dev/null || true[0m
+2026-07-24T00:34:08.1859180Z [36;1m  find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -5[0m
+2026-07-24T00:34:08.1859660Z [36;1m  # Try to create it from the engine artifacts[0m
+2026-07-24T00:34:08.1860000Z [36;1m  ENGINE_DIR="$FLUTTER_ROOT/bin/cache/artifacts/engine/ios"[0m
+2026-07-24T00:34:08.1860290Z [36;1m  if [ -d "$ENGINE_DIR" ]; then[0m
+2026-07-24T00:34:08.1860500Z [36;1m    ls -la "$ENGINE_DIR"[0m
+2026-07-24T00:34:08.1860690Z [36;1m  fi[0m
+2026-07-24T00:34:08.1860940Z [36;1mfi[0m
+2026-07-24T00:34:08.1890590Z shell: /bin/bash -e {0}
+2026-07-24T00:34:08.1890850Z env:
+2026-07-24T00:34:08.1898820Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:34:08.1899260Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:34:08.1899500Z ##[endgroup]
+2026-07-24T00:34:08.3218010Z Copying Flutter.xcframework from cache...

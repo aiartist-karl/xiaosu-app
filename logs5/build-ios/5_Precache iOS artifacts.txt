@@ -1,0 +1,7 @@
+﻿2026-07-24T00:34:07.9964840Z ##[group]Run flutter precache --ios
+2026-07-24T00:34:07.9965120Z [36;1mflutter precache --ios[0m
+2026-07-24T00:34:08.0003280Z shell: /bin/bash -e {0}
+2026-07-24T00:34:08.0003480Z env:
+2026-07-24T00:34:08.0003740Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:34:08.0004060Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:34:08.0004250Z ##[endgroup]

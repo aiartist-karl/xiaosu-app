@@ -1,0 +1,272 @@
+﻿2026-07-24T00:47:53.6929710Z ##[group]Run flutter pub get
+2026-07-24T00:47:53.6936030Z [36;1mflutter pub get[0m
+2026-07-24T00:47:53.6974910Z shell: /bin/bash -e {0}
+2026-07-24T00:47:53.6975140Z env:
+2026-07-24T00:47:53.6975400Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:47:53.6975840Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:47:53.6976250Z ##[endgroup]
+2026-07-24T00:47:54.0306660Z 
+2026-07-24T00:47:54.0320240Z   ╔════════════════════════════════════════════════════════════════════════════╗
+2026-07-24T00:47:54.0321560Z   ║                 Welcome to Flutter! - https://flutter.dev                  ║
+2026-07-24T00:47:54.0322080Z   ║                                                                            ║
+2026-07-24T00:47:54.0322600Z   ║ The Flutter tool uses Google Analytics to anonymously report feature usage ║
+2026-07-24T00:47:54.0323310Z   ║ statistics and basic crash reports. This data is used to help improve      ║
+2026-07-24T00:47:54.0324840Z   ║ Flutter tools over time.                                                   ║
+2026-07-24T00:47:54.0325580Z   ║                                                                            ║
+2026-07-24T00:47:54.0326240Z   ║ Flutter tool analytics are not sent on the very first run. To disable      ║
+2026-07-24T00:47:54.0326890Z   ║ reporting, type 'flutter config --no-analytics'. To display the current    ║
+2026-07-24T00:47:54.0327670Z   ║ setting, type 'flutter config'. If you opt out of analytics, an opt-out    ║
+2026-07-24T00:47:54.0328400Z   ║ event will be sent, and then no further information will be sent by the    ║
+2026-07-24T00:47:54.0328970Z   ║ Flutter tool.                                                              ║
+2026-07-24T00:47:54.0329490Z   ║                                                                            ║
+2026-07-24T00:47:54.0330190Z   ║ By downloading the Flutter SDK, you agree to the Google Terms of Service.  ║
+2026-07-24T00:47:54.0330900Z   ║ The Google Privacy Policy describes how data is handled in this service.   ║
+2026-07-24T00:47:54.0331460Z   ║                                                                            ║
+2026-07-24T00:47:54.0332030Z   ║ Moreover, Flutter includes the Dart SDK, which may send usage metrics and  ║
+2026-07-24T00:47:54.0332530Z   ║ crash reports to Google.                                                   ║
+2026-07-24T00:47:54.0333040Z   ║                                                                            ║
+2026-07-24T00:47:54.0333580Z   ║ Read about data we send with crash reports:                                ║
+2026-07-24T00:47:54.0334130Z   ║ https://flutter.dev/to/crash-reporting                                     ║
+2026-07-24T00:47:54.0334550Z   ║                                                                            ║
+2026-07-24T00:47:54.0335260Z   ║ See Google's privacy policy:                                               ║
+2026-07-24T00:47:54.0335930Z   ║ https://policies.google.com/privacy                                        ║
+2026-07-24T00:47:54.0336450Z   ║                                                                            ║
+2026-07-24T00:47:54.0336900Z   ║ To disable animations in this tool, use                                    ║
+2026-07-24T00:47:54.0337470Z   ║ 'flutter config --no-cli-animations'.                                      ║
+2026-07-24T00:47:54.0338000Z   ╚════════════════════════════════════════════════════════════════════════════╝
+2026-07-24T00:47:54.0338350Z 
+2026-07-24T00:47:58.4903960Z Resolving dependencies...
+2026-07-24T00:48:00.1225070Z Downloading packages...
+2026-07-24T00:48:07.4948010Z + _fe_analyzer_shared 72.0.0 (105.0.0 available)
+2026-07-24T00:48:07.4951570Z + _macros 0.3.2 from sdk dart
+2026-07-24T00:48:07.4952100Z + analyzer 6.7.0 (14.1.0 available)
+2026-07-24T00:48:07.4952560Z + analyzer_plugin 0.11.3 (0.14.14 available)
+2026-07-24T00:48:07.4953030Z + archive 3.6.1 (4.0.9 available)
+2026-07-24T00:48:07.4953520Z + args 2.7.0
+2026-07-24T00:48:07.4955340Z + asn1lib 1.6.5
+2026-07-24T00:48:07.4955660Z + async 2.11.0 (2.13.1 available)
+2026-07-24T00:48:07.4956750Z + audioplayers 5.2.1 (6.8.1 available)
+2026-07-24T00:48:07.4957140Z + audioplayers_android 4.0.3 (5.3.0 available)
+2026-07-24T00:48:07.4957620Z + audioplayers_darwin 5.0.2 (6.5.0 available)
+2026-07-24T00:48:07.4957990Z + audioplayers_linux 3.1.0 (4.3.0 available)
+2026-07-24T00:48:07.4958460Z + audioplayers_platform_interface 6.1.0 (7.2.0 available)
+2026-07-24T00:48:07.4958980Z + audioplayers_web 4.1.0 (5.3.0 available)
+2026-07-24T00:48:07.4964890Z + audioplayers_windows 3.1.0 (4.4.1 available)
+2026-07-24T00:48:07.4965290Z + battery_plus 3.0.6 (7.1.1 available)
+2026-07-24T00:48:07.4965720Z + battery_plus_platform_interface 1.2.2 (2.0.1 available)
+2026-07-24T00:48:07.4966150Z + boolean_selector 2.1.1 (2.1.2 available)
+2026-07-24T00:48:07.4966620Z + build 2.4.1 (4.0.8 available)
+2026-07-24T00:48:07.4966950Z + build_config 1.1.1 (1.3.1 available)
+2026-07-24T00:48:07.4967390Z + build_daemon 4.0.2 (4.1.2 available)
+2026-07-24T00:48:07.4967730Z + build_resolvers 2.4.2 (3.0.4 available)
+2026-07-24T00:48:07.4968120Z + build_runner 2.4.13 (2.15.2 available)
+2026-07-24T00:48:07.4968610Z + build_runner_core 7.3.2 (9.3.2 available)
+2026-07-24T00:48:07.4968960Z + built_collection 5.1.1
+2026-07-24T00:48:07.4969280Z + built_value 8.12.6
+2026-07-24T00:48:07.4969650Z + cached_network_image 3.4.0 (3.4.1 available)
+2026-07-24T00:48:07.4970150Z + cached_network_image_platform_interface 4.1.1
+2026-07-24T00:48:07.4970600Z + cached_network_image_web 1.3.0 (1.3.1 available)
+2026-07-24T00:48:07.4971090Z + camera 0.11.0+2 (0.12.0+2 available)
+2026-07-24T00:48:07.4971410Z + camera_android_camerax 0.6.10+3 (0.7.4+2 available)
+2026-07-24T00:48:07.4971890Z + camera_avfoundation 0.9.19 (0.10.2 available)
+2026-07-24T00:48:07.4972310Z + camera_platform_interface 2.10.0 (2.13.1 available)
+2026-07-24T00:48:07.4972910Z + camera_web 0.3.5 (0.3.5+4 available)
+2026-07-24T00:48:07.4973300Z + characters 1.3.0 (1.4.1 available)
+2026-07-24T00:48:07.4973700Z + charcode 1.4.0
+2026-07-24T00:48:07.4974010Z + checked_yaml 2.0.3 (2.0.4 available)
+2026-07-24T00:48:07.4974510Z + cli_util 0.4.2 (0.5.2 available)
+2026-07-24T00:48:07.4974860Z + clock 1.1.1 (1.1.2 available)
+2026-07-24T00:48:07.4975300Z + code_builder 4.10.1 (4.11.1 available)
+2026-07-24T00:48:07.4975780Z + collection 1.18.0 (1.19.1 available)
+2026-07-24T00:48:07.4976360Z + connectivity_plus 5.0.2 (7.3.1 available)
+2026-07-24T00:48:07.4983490Z + connectivity_plus_platform_interface 1.2.4 (2.1.0 available)
+2026-07-24T00:48:07.4984890Z + convert 3.1.2
+2026-07-24T00:48:07.4985380Z + cross_file 0.3.4+2 (0.3.5+4 available)
+2026-07-24T00:48:07.4985780Z + crypto 3.0.7
+2026-07-24T00:48:07.4986130Z + csslib 1.0.2
+2026-07-24T00:48:07.4986390Z + cupertino_icons 1.0.8 (1.0.9 available)
+2026-07-24T00:48:07.4986900Z + custom_lint_core 0.7.0 (0.8.2 available)
+2026-07-24T00:48:07.4987310Z + custom_lint_visitor 1.0.0+6.7.0 (1.0.0+9.0.0 available)
+2026-07-24T00:48:07.4987790Z + dart_style 2.3.7 (3.1.12 available)
+2026-07-24T00:48:07.4988140Z + dbus 0.7.12 (0.7.14 available)
+2026-07-24T00:48:07.4988580Z + device_info_plus 10.1.2 (13.2.0 available)
+2026-07-24T00:48:07.4988960Z + device_info_plus_platform_interface 7.0.2 (8.1.0 available)
+2026-07-24T00:48:07.4989310Z + dio 5.10.0
+2026-07-24T00:48:07.4989980Z + dio_web_adapter 2.2.0
+2026-07-24T00:48:07.4990350Z + drift 2.19.1+1 (2.34.2 available)
+2026-07-24T00:48:07.4990650Z + drift_dev 2.19.1 (2.34.5 available)
+2026-07-24T00:48:07.4991100Z + encrypt 5.0.3
+2026-07-24T00:48:07.4991430Z + equatable 2.1.0
+2026-07-24T00:48:07.4991850Z + fake_async 1.3.1 (1.3.3 available)
+2026-07-24T00:48:07.4992230Z + fetch_api 2.2.0 (2.3.1 available)
+2026-07-24T00:48:07.4992650Z + fetch_client 1.2.1
+2026-07-24T00:48:07.4992910Z + ffi 2.1.3 (2.2.0 available)
+2026-07-24T00:48:07.4993220Z + file 7.0.1
+2026-07-24T00:48:07.4993700Z + file_picker 6.2.1 (11.0.2 available)
+2026-07-24T00:48:07.4994070Z + file_selector_linux 0.9.3+2 (0.9.4 available)
+2026-07-24T00:48:07.4994480Z + file_selector_macos 0.9.4+2 (0.9.5 available)
+2026-07-24T00:48:07.4995470Z + file_selector_platform_interface 2.6.2 (2.7.0 available)
+2026-07-24T00:48:07.4996200Z + file_selector_windows 0.9.3+4 (0.9.3+5 available)
+2026-07-24T00:48:07.4996580Z + fixnum 1.1.1
+2026-07-24T00:48:07.4996900Z + flutter 0.0.0 from sdk flutter
+2026-07-24T00:48:07.4997220Z + flutter_animate 4.5.2
+2026-07-24T00:48:07.4997680Z + flutter_cache_manager 3.4.1 (3.4.2 available)
+2026-07-24T00:48:07.4998090Z + flutter_lints 3.0.2 (6.0.0 available)
+2026-07-24T00:48:07.4998650Z + flutter_local_notifications 17.2.4 (22.1.0 available)
+2026-07-24T00:48:07.4999080Z + flutter_local_notifications_linux 4.0.1 (8.0.1 available)
+2026-07-24T00:48:07.4999640Z + flutter_local_notifications_platform_interface 7.2.0 (12.0.1 available)
+2026-07-24T00:48:07.5000130Z + flutter_markdown 0.7.7+1 (discontinued replaced by flutter_markdown_plus)
+2026-07-24T00:48:07.5013310Z + flutter_plugin_android_lifecycle 2.0.26 (2.0.35 available)
+2026-07-24T00:48:07.5015810Z + flutter_riverpod 2.6.1 (3.3.2 available)
+2026-07-24T00:48:07.5016270Z + flutter_secure_storage 9.2.4 (10.3.1 available)
+2026-07-24T00:48:07.5017260Z + flutter_secure_storage_linux 1.2.3 (3.0.1 available)
+2026-07-24T00:48:07.5017840Z + flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+2026-07-24T00:48:07.5018380Z + flutter_secure_storage_platform_interface 1.1.2 (2.0.1 available)
+2026-07-24T00:48:07.5018750Z + flutter_secure_storage_web 1.2.1 (2.1.1 available)
+2026-07-24T00:48:07.5019110Z + flutter_secure_storage_windows 3.1.2 (4.2.2 available)
+2026-07-24T00:48:07.5019400Z + flutter_shaders 0.1.3
+2026-07-24T00:48:07.5019700Z + flutter_svg 2.1.0 (2.3.0 available)
+2026-07-24T00:48:07.5019960Z + flutter_test 0.0.0 from sdk flutter
+2026-07-24T00:48:07.5020290Z + flutter_timezone 3.0.1 (5.1.0 available)
+2026-07-24T00:48:07.5020620Z + flutter_web_plugins 0.0.0 from sdk flutter
+2026-07-24T00:48:07.5020990Z + freezed_annotation 2.4.4 (3.1.0 available)
+2026-07-24T00:48:07.5021290Z + frontend_server_client 4.0.0
+2026-07-24T00:48:07.5021600Z + glob 2.1.3
+2026-07-24T00:48:07.5021810Z + go_router 14.8.1 (17.3.0 available)
+2026-07-24T00:48:07.5022150Z + google_fonts 6.3.0 (8.2.0 available)
+2026-07-24T00:48:07.5022390Z + graphs 2.3.2
+2026-07-24T00:48:07.5022650Z + hive 2.2.3
+2026-07-24T00:48:07.5022830Z + hive_flutter 1.1.0
+2026-07-24T00:48:07.5023130Z + html 0.15.6
+2026-07-24T00:48:07.5023320Z + http 1.6.0
+2026-07-24T00:48:07.5023530Z + http_multi_server 3.2.2
+2026-07-24T00:48:07.5023760Z + http_parser 4.0.2 (4.1.2 available)
+2026-07-24T00:48:07.5024050Z + image_picker 1.1.2 (1.2.3 available)
+2026-07-24T00:48:07.5024280Z + image_picker_android 0.8.12+21 (0.8.13+19 available)
+2026-07-24T00:48:07.5024640Z + image_picker_for_web 3.0.6 (3.1.1 available)
+2026-07-24T00:48:07.5024970Z + image_picker_ios 0.8.12+2 (0.8.13+6 available)
+2026-07-24T00:48:07.5025330Z + image_picker_linux 0.2.1+2 (0.2.2 available)
+2026-07-24T00:48:07.5025630Z + image_picker_macos 0.2.1+2 (0.2.2+1 available)
+2026-07-24T00:48:07.5026050Z + image_picker_platform_interface 2.10.1 (2.11.1 available)
+2026-07-24T00:48:07.5026380Z + image_picker_windows 0.2.1+1 (0.2.2 available)
+2026-07-24T00:48:07.5026650Z + intl 0.19.0 (0.20.3 available)
+2026-07-24T00:48:07.5026820Z + io 1.0.5
+2026-07-24T00:48:07.5026970Z + js 0.6.7 (0.7.2 available)
+2026-07-24T00:48:07.5027150Z + json_annotation 4.9.0 (4.12.0 available)
+2026-07-24T00:48:07.5027390Z + json_serializable 6.9.0 (6.14.0 available)
+2026-07-24T00:48:07.5027600Z + leak_tracker 10.0.5 (11.0.2 available)
+2026-07-24T00:48:07.5027850Z + leak_tracker_flutter_testing 3.0.5 (3.0.10 available)
+2026-07-24T00:48:07.5028110Z + leak_tracker_testing 3.0.1 (3.0.2 available)
+2026-07-24T00:48:07.5028360Z + lints 3.0.0 (6.1.0 available)
+2026-07-24T00:48:07.5028540Z + local_auth 2.3.0 (3.0.2 available)
+2026-07-24T00:48:07.5028750Z + local_auth_android 1.0.47 (2.0.9 available)
+2026-07-24T00:48:07.5028980Z + local_auth_darwin 1.4.3 (2.0.3 available)
+2026-07-24T00:48:07.5029240Z + local_auth_platform_interface 1.0.10 (1.1.0 available)
+2026-07-24T00:48:07.5029560Z + local_auth_windows 1.0.11 (2.0.1 available)
+2026-07-24T00:48:07.5030100Z + logger 2.7.0
+2026-07-24T00:48:07.5030400Z + logging 1.3.0
+2026-07-24T00:48:07.5030620Z + macros 0.1.2-main.4 (0.1.3-main.0 available)
+2026-07-24T00:48:07.5030860Z + markdown 7.3.0 (7.3.1 available)
+2026-07-24T00:48:07.5031060Z + matcher 0.12.16+1 (0.12.20 available)
+2026-07-24T00:48:07.5031300Z + material_color_utilities 0.11.1 (0.13.0 available)
+2026-07-24T00:48:07.5031530Z + meta 1.15.0 (1.19.0 available)
+2026-07-24T00:48:07.5031790Z + mime 1.0.6 (2.0.0 available)
+2026-07-24T00:48:07.5031980Z + nm 0.5.0
+2026-07-24T00:48:07.5032140Z + octo_image 2.1.0
+2026-07-24T00:48:07.5032350Z + openai_dart 0.4.5 (7.0.1 available)
+2026-07-24T00:48:07.5032560Z + package_config 2.2.0 (3.0.0 available)
+2026-07-24T00:48:07.5048380Z + package_info_plus 8.3.1 (10.2.1 available)
+2026-07-24T00:48:07.5048740Z + package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+2026-07-24T00:48:07.5049130Z + path 1.9.0 (1.9.1 available)
+2026-07-24T00:48:07.5049300Z + path_parsing 1.1.0
+2026-07-24T00:48:07.5049490Z + path_provider 2.1.5 (2.1.6 available)
+2026-07-24T00:48:07.5049730Z + path_provider_android 2.2.15 (2.3.1 available)
+2026-07-24T00:48:07.5050000Z + path_provider_foundation 2.4.1 (2.6.0 available)
+2026-07-24T00:48:07.5050240Z + path_provider_linux 2.2.1 (2.2.2 available)
+2026-07-24T00:48:07.5050520Z + path_provider_platform_interface 2.1.2 (2.1.3 available)
+2026-07-24T00:48:07.5050780Z + path_provider_windows 2.3.0
+2026-07-24T00:48:07.5051010Z + permission_handler 11.4.0 (12.0.3 available)
+2026-07-24T00:48:07.5051290Z + permission_handler_android 12.1.0 (13.0.1 available)
+2026-07-24T00:48:07.5051580Z + permission_handler_apple 9.4.10
+2026-07-24T00:48:07.5051790Z + permission_handler_html 0.1.3+5
+2026-07-24T00:48:07.5052000Z + permission_handler_platform_interface 4.3.0
+2026-07-24T00:48:07.5052250Z + permission_handler_windows 0.2.1
+2026-07-24T00:48:07.5052450Z + petitparser 6.0.2 (7.0.2 available)
+2026-07-24T00:48:07.5052650Z + platform 3.1.6
+2026-07-24T00:48:07.5052820Z + plugin_platform_interface 2.1.8
+2026-07-24T00:48:07.5053030Z + pointycastle 3.9.1 (4.0.0 available)
+2026-07-24T00:48:07.5053220Z + pool 1.5.2
+2026-07-24T00:48:07.5053390Z + pub_semver 2.2.0
+2026-07-24T00:48:07.5053560Z + pubspec_parse 1.4.0 (1.5.0 available)
+2026-07-24T00:48:07.5053740Z + recase 4.1.0
+2026-07-24T00:48:07.5053890Z + riverpod 2.6.1 (3.3.2 available)
+2026-07-24T00:48:07.5054110Z + riverpod_analyzer_utils 0.5.8 (0.5.10 available)
+2026-07-24T00:48:07.5054360Z + riverpod_annotation 2.6.1 (4.0.3 available)
+2026-07-24T00:48:07.5054600Z + riverpod_generator 2.6.3 (4.0.4 available)
+2026-07-24T00:48:07.5054810Z + rxdart 0.28.0
+2026-07-24T00:48:07.5054970Z + share_plus 7.2.2 (13.3.0 available)
+2026-07-24T00:48:07.5055230Z + share_plus_platform_interface 3.4.0 (7.2.0 available)
+2026-07-24T00:48:07.5055530Z + shared_preferences 2.5.3 (2.5.5 available)
+2026-07-24T00:48:07.5055800Z + shared_preferences_android 2.4.7 (2.4.27 available)
+2026-07-24T00:48:07.5056090Z + shared_preferences_foundation 2.5.4 (2.5.6 available)
+2026-07-24T00:48:07.5056350Z + shared_preferences_linux 2.4.1
+2026-07-24T00:48:07.5056600Z + shared_preferences_platform_interface 2.4.1 (2.4.2 available)
+2026-07-24T00:48:07.5056880Z + shared_preferences_web 2.4.3
+2026-07-24T00:48:07.5057080Z + shared_preferences_windows 2.4.1
+2026-07-24T00:48:07.5057260Z + shelf 1.4.1 (1.4.2 available)
+2026-07-24T00:48:07.5057450Z + shelf_web_socket 2.0.1 (3.0.0 available)
+2026-07-24T00:48:07.5057670Z + sky_engine 0.0.99 from sdk flutter
+2026-07-24T00:48:07.5057880Z + source_gen 1.5.0 (4.2.4 available)
+2026-07-24T00:48:07.5058120Z + source_helper 1.3.5 (1.3.12 available)
+2026-07-24T00:48:07.5058330Z + source_span 1.10.0 (1.10.2 available)
+2026-07-24T00:48:07.5058540Z + sqflite 2.4.1 (2.4.3 available)
+2026-07-24T00:48:07.5058740Z + sqflite_android 2.4.0 (2.4.3 available)
+2026-07-24T00:48:07.5058970Z + sqflite_common 2.5.4+6 (2.5.11 available)
+2026-07-24T00:48:07.5059190Z + sqflite_darwin 2.4.1+1 (2.4.3+1 available)
+2026-07-24T00:48:07.5059450Z + sqflite_platform_interface 2.4.0 (2.4.1 available)
+2026-07-24T00:48:07.5059970Z + sqlite3 2.4.5 (3.5.0 available)
+2026-07-24T00:48:07.5060300Z + sqlite3_flutter_libs 0.5.42 (0.6.0+eol available)
+2026-07-24T00:48:07.5060520Z + sqlparser 0.37.1 (0.45.0 available)
+2026-07-24T00:48:07.5060700Z + stack_trace 1.11.1 (1.12.1 available)
+2026-07-24T00:48:07.5060900Z + state_notifier 1.0.0
+2026-07-24T00:48:07.5061070Z + stream_channel 2.1.2 (2.1.4 available)
+2026-07-24T00:48:07.5061310Z + stream_transform 2.1.1
+2026-07-24T00:48:07.5061490Z + string_scanner 1.2.0 (1.4.1 available)
+2026-07-24T00:48:07.5061690Z + synchronized 3.3.0+3 (3.4.1+1 available)
+2026-07-24T00:48:07.5061880Z + term_glyph 1.2.1 (1.2.2 available)
+2026-07-24T00:48:07.5062060Z + test_api 0.7.2 (0.7.13 available)
+2026-07-24T00:48:07.5062240Z + timezone 0.9.4 (0.11.1 available)
+2026-07-24T00:48:07.5062400Z + timing 1.0.2
+2026-07-24T00:48:07.5062530Z + typed_data 1.4.0
+2026-07-24T00:48:07.5062660Z + upower 0.7.0
+2026-07-24T00:48:07.5062800Z + url_launcher 6.3.1 (6.3.2 available)
+2026-07-24T00:48:07.5063000Z + url_launcher_android 6.3.14 (6.3.32 available)
+2026-07-24T00:48:07.5063220Z + url_launcher_ios 6.3.3 (6.4.1 available)
+2026-07-24T00:48:07.5063430Z + url_launcher_linux 3.2.1 (3.2.2 available)
+2026-07-24T00:48:07.5063630Z + url_launcher_macos 3.2.2 (3.2.5 available)
+2026-07-24T00:48:07.5063840Z + url_launcher_platform_interface 2.3.2
+2026-07-24T00:48:07.5064040Z + url_launcher_web 2.3.3 (2.4.3 available)
+2026-07-24T00:48:07.5064250Z + url_launcher_windows 3.1.4 (3.1.5 available)
+2026-07-24T00:48:07.5064450Z + uuid 4.6.0
+2026-07-24T00:48:07.5064590Z + vector_graphics 1.1.18 (1.2.2 available)
+2026-07-24T00:48:07.5064790Z + vector_graphics_codec 1.1.13
+2026-07-24T00:48:07.5064990Z + vector_graphics_compiler 1.1.16 (1.2.6 available)
+2026-07-24T00:48:07.5065210Z + vector_math 2.1.4 (2.4.1 available)
+2026-07-24T00:48:07.5065400Z + video_player 2.9.5 (2.13.0 available)
+2026-07-24T00:48:07.5065610Z + video_player_android 2.7.16 (2.12.0 available)
+2026-07-24T00:48:07.5065850Z + video_player_avfoundation 2.7.1 (2.11.0 available)
+2026-07-24T00:48:07.5066140Z + video_player_platform_interface 6.3.0 (6.9.0 available)
+2026-07-24T00:48:07.5066380Z + video_player_web 2.3.5 (2.4.0 available)
+2026-07-24T00:48:07.5066570Z + vm_service 14.2.5 (15.2.0 available)
+2026-07-24T00:48:07.5066740Z + watcher 1.2.1
+2026-07-24T00:48:07.5066870Z + web 0.5.1 (1.1.1 available)
+2026-07-24T00:48:07.5067050Z + web_socket_channel 2.4.5 (3.0.3 available)
+2026-07-24T00:48:07.5067240Z + win32 5.10.1 (6.3.0 available)
+2026-07-24T00:48:07.5067410Z + win32_registry 1.1.5 (3.0.3 available)
+2026-07-24T00:48:07.5067590Z + xdg_directories 1.1.0
+2026-07-24T00:48:07.5067740Z + xml 6.5.0 (7.0.1 available)
+2026-07-24T00:48:07.5067900Z + yaml 3.1.3
+2026-07-24T00:48:07.5068030Z Changed 229 dependencies!
+2026-07-24T00:48:07.5068190Z 1 package is discontinued.
+2026-07-24T00:48:07.5068430Z 166 packages have newer versions incompatible with dependency constraints.
+2026-07-24T00:48:07.5068750Z Try `flutter pub outdated` for more information.

@@ -1,0 +1,12 @@
+﻿2026-07-24T00:22:03.2477930Z ##[group]Run flutter clean
+2026-07-24T00:22:03.2478220Z [36;1mflutter clean[0m
+2026-07-24T00:22:03.2514910Z shell: /bin/bash -e {0}
+2026-07-24T00:22:03.2515100Z env:
+2026-07-24T00:22:03.2515470Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:22:03.2515870Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:22:03.2516050Z ##[endgroup]
+2026-07-24T00:22:03.5460140Z Deleting .dart_tool...                                               0ms
+2026-07-24T00:22:03.5560100Z Deleting Generated.xcconfig...                                       0ms
+2026-07-24T00:22:03.5661410Z Deleting flutter_export_environment.sh...                            0ms
+2026-07-24T00:22:03.5763900Z Deleting .flutter-plugins-dependencies...                            0ms
+2026-07-24T00:22:03.5848970Z Deleting .flutter-plugins...                                         0ms

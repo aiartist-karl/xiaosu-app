@@ -1,0 +1,98 @@
+﻿2026-07-24T00:56:16.4688240Z ##[group]Run subosito/flutter-action@v2
+2026-07-24T00:56:16.4689080Z with:
+2026-07-24T00:56:16.4689710Z   flutter-version: 3.24.x
+2026-07-24T00:56:16.4690300Z   channel: stable
+2026-07-24T00:56:16.4691130Z   cache: true
+2026-07-24T00:56:16.4691640Z   architecture: ARM64
+2026-07-24T00:56:16.4692010Z   pub-cache-path: default
+2026-07-24T00:56:16.4692220Z   dry-run: false
+2026-07-24T00:56:16.4692510Z   git-source: https://github.com/flutter/flutter.git
+2026-07-24T00:56:16.4692830Z ##[endgroup]
+2026-07-24T00:56:16.4751740Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+2026-07-24T00:56:16.4768610Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-07-24T00:56:16.4770910Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+2026-07-24T00:56:16.4807400Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+2026-07-24T00:56:16.4807910Z [36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"[0m
+2026-07-24T00:56:16.4893710Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-24T00:56:16.4895110Z ##[endgroup]
+2026-07-24T00:56:16.5558180Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=78]
+2026-07-24T00:56:16.5561410Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+2026-07-24T00:56:16.5603160Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+2026-07-24T00:56:16.5603610Z [36;1m$GITHUB_ACTION_PATH/setup.sh -p \[0m
+2026-07-24T00:56:16.5603880Z [36;1m  -n '3.24.x' \[0m
+2026-07-24T00:56:16.5604090Z [36;1m  -f '' \[0m
+2026-07-24T00:56:16.5604290Z [36;1m  -a 'ARM64' \[0m
+2026-07-24T00:56:16.5604490Z [36;1m  -k '' \[0m
+2026-07-24T00:56:16.5604690Z [36;1m  -c '' \[0m
+2026-07-24T00:56:16.5604870Z [36;1m  -l '' \[0m
+2026-07-24T00:56:16.5605070Z [36;1m  -d 'default' \[0m
+2026-07-24T00:56:16.5605370Z [36;1m  -g 'https://github.com/flutter/flutter.git' \[0m
+2026-07-24T00:56:16.5605680Z [36;1m  stable[0m
+2026-07-24T00:56:16.5638610Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-24T00:56:16.5638980Z ##[endgroup]
+2026-07-24T00:56:17.1170640Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=560]
+2026-07-24T00:56:17.1175990Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+2026-07-24T00:56:17.1269970Z ##[group]Run actions/cache@v5
+2026-07-24T00:56:17.1270360Z with:
+2026-07-24T00:56:17.1270640Z   path: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64
+2026-07-24T00:56:17.1271090Z   key: flutter-macos-stable-3.24.5-arm64-dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
+2026-07-24T00:56:17.1271480Z   enableCrossOsArchive: false
+2026-07-24T00:56:17.1271710Z   fail-on-cache-miss: false
+2026-07-24T00:56:17.1272050Z   lookup-only: false
+2026-07-24T00:56:17.1272270Z   save-always: false
+2026-07-24T00:56:17.1272580Z ##[endgroup]
+2026-07-24T00:56:17.3557810Z Cache not found for input keys: flutter-macos-stable-3.24.5-arm64-dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668
+2026-07-24T00:56:17.3590950Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=success;conclusion=success;duration_ms=241]
+2026-07-24T00:56:17.3594330Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+2026-07-24T00:56:17.8081360Z ##[group]Run actions/cache@v5
+2026-07-24T00:56:17.8081700Z with:
+2026-07-24T00:56:17.8081890Z   path: /Users/runner/.pub-cache
+2026-07-24T00:56:17.8082570Z   key: flutter-pub-macos-stable-3.24.5-arm64-dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668-
+2026-07-24T00:56:17.8082980Z   enableCrossOsArchive: false
+2026-07-24T00:56:17.8083210Z   fail-on-cache-miss: false
+2026-07-24T00:56:17.8083420Z   lookup-only: false
+2026-07-24T00:56:17.8083630Z   save-always: false
+2026-07-24T00:56:17.8083830Z ##[endgroup]
+2026-07-24T00:56:18.0757300Z Cache not found for input keys: flutter-pub-macos-stable-3.24.5-arm64-dec2ee5c1f98f8e84a7d5380c05eb8a3d0a81668-
+2026-07-24T00:56:18.0790600Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=success;conclusion=success;duration_ms=719]
+2026-07-24T00:56:18.0793870Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+2026-07-24T00:56:18.0829770Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+2026-07-24T00:56:18.0830140Z [36;1m$GITHUB_ACTION_PATH/setup.sh \[0m
+2026-07-24T00:56:18.0830480Z [36;1m  -n '3.24.5' \[0m
+2026-07-24T00:56:18.0830700Z [36;1m  -a 'arm64' \[0m
+2026-07-24T00:56:18.0831120Z [36;1m  -c '/Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64' \[0m
+2026-07-24T00:56:18.0831490Z [36;1m  -d '/Users/runner/.pub-cache' \[0m
+2026-07-24T00:56:18.0831730Z [36;1m  stable[0m
+2026-07-24T00:56:18.0870270Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-24T00:56:18.0870670Z ##[endgroup]
+2026-07-24T00:56:18.4954420Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-07-24T00:56:18.4956200Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-07-24T00:56:18.4956590Z 
+2026-07-24T00:56:19.2788810Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-07-24T00:56:20.2774830Z   3 1505M    3 49.7M    0     0  64.1M      0  0:00:23 --:--:--  0:00:23 64.0M
+2026-07-24T00:56:21.2716530Z   7 1505M    7  113M    0     0  63.9M      0  0:00:23  0:00:01  0:00:22 63.9M
+2026-07-24T00:56:22.2705650Z  11 1505M   11  171M    0     0  61.9M      0  0:00:24  0:00:02  0:00:22 61.9M
+2026-07-24T00:56:23.2731950Z  15 1505M   15  230M    0     0  60.9M      0  0:00:24  0:00:03  0:00:21 60.9M
+2026-07-24T00:56:24.2709900Z  19 1505M   19  290M    0     0  60.9M      0  0:00:24  0:00:04  0:00:20 60.9M
+2026-07-24T00:56:25.2725010Z  23 1505M   23  350M    0     0  60.7M      0  0:00:24  0:00:05  0:00:19 60.2M
+2026-07-24T00:56:26.2717490Z  27 1505M   27  408M    0     0  60.3M      0  0:00:24  0:00:06  0:00:18 58.9M
+2026-07-24T00:56:27.2761430Z  30 1505M   30  463M    0     0  59.5M      0  0:00:25  0:00:07  0:00:18 58.2M
+2026-07-24T00:56:28.2712030Z  34 1505M   34  516M    0     0  58.8M      0  0:00:25  0:00:08  0:00:17 57.2M
+2026-07-24T00:56:29.2806090Z  37 1505M   37  569M    0     0  58.2M      0  0:00:25  0:00:09  0:00:16 55.6M
+2026-07-24T00:56:30.2756660Z  41 1505M   41  617M    0     0  57.3M      0  0:00:26  0:00:10  0:00:16 53.3M
+2026-07-24T00:56:31.2713820Z  44 1505M   44  666M    0     0  56.5M      0  0:00:26  0:00:11  0:00:15 51.5M
+2026-07-24T00:56:32.2706760Z  48 1505M   48  724M    0     0  56.7M      0  0:00:26  0:00:12  0:00:14 52.3M
+2026-07-24T00:56:33.2718850Z  52 1505M   52  786M    0     0  57.1M      0  0:00:26  0:00:13  0:00:13 54.0M
+2026-07-24T00:56:34.2752470Z  56 1505M   56  849M    0     0  57.4M      0  0:00:26  0:00:14  0:00:12 56.0M
+2026-07-24T00:56:35.2712640Z  60 1505M   60  912M    0     0  57.8M      0  0:00:26  0:00:15  0:00:11 58.8M
+2026-07-24T00:56:36.2722770Z  64 1505M   64  970M    0     0  57.8M      0  0:00:26  0:00:16  0:00:10 60.8M
+2026-07-24T00:56:37.2712250Z  68 1505M   68 1026M    0     0  57.7M      0  0:00:26  0:00:17  0:00:09 60.2M
+2026-07-24T00:56:38.2711370Z  71 1505M   71 1080M    0     0  57.5M      0  0:00:26  0:00:18  0:00:08 58.7M
+2026-07-24T00:56:39.2815330Z  75 1505M   75 1137M    0     0  57.5M      0  0:00:26  0:00:19  0:00:07 57.6M
+2026-07-24T00:56:40.2716280Z  79 1505M   79 1200M    0     0  57.7M      0  0:00:26  0:00:20  0:00:06 57.6M
+2026-07-24T00:56:41.2722230Z  83 1505M   83 1259M    0     0  57.8M      0  0:00:26  0:00:21  0:00:05 57.8M
+2026-07-24T00:56:42.2711140Z  87 1505M   87 1319M    0     0  57.9M      0  0:00:25  0:00:22  0:00:03 58.5M
+2026-07-24T00:56:43.2731890Z  91 1505M   91 1384M    0     0  58.2M      0  0:00:25  0:00:23  0:00:02 60.7M
+2026-07-24T00:56:44.1336000Z  96 1505M   96 1449M    0     0  58.4M      0  0:00:25  0:00:24  0:00:01 62.2M
+2026-07-24T00:56:44.1432140Z 100 1505M  100 1505M    0     0  58.7M      0  0:00:25  0:00:25 --:--:-- 62.7M
+2026-07-24T00:57:21.9497210Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=63870]

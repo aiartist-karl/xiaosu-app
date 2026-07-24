@@ -1,94 +1,170 @@
 // ============================================================================
-// 小酥 (XiaoSu) - 聊天消息模型
+// 小酥 - 聊天消息模型
 // ============================================================================
 
-import 'package:json_annotation/json_annotation.dart';
-
-part 'chat_message.g.dart';
+import 'package:equatable/equatable.dart';
 
 /// 消息角色枚举
 enum MessageRole {
-  /// 用户消息
   user('user'),
-  /// AI 助手回复
   assistant('assistant'),
-  /// 系统消息（如技能调用结果）
   system('system'),
-  /// 工具调用结果
   tool('tool');
 
   final String value;
   const MessageRole(this.value);
 }
 
+/// 消息状态
+enum MessageStatus {
+  sending,    // 发送中
+  sent,       // 已发送
+  streaming,  // 流式接收中
+  completed,  // 已完成
+  error,      // 错误
+}
+
 /// 聊天消息模型
-@JsonSerializable()
-class ChatMessage {
-  /// 消息唯一 ID
+class ChatMessage extends Equatable {
   final String id;
-
-  /// 所属对话 ID
   final String conversationId;
-
-  /// 消息角色（user / assistant / system / tool）
-  final MessageRole role;
-
-  /// 消息文本内容
   final String content;
-
-  /// 附件列表（图片路径、文件路径等）
-  @Default([])
-  final List<String> attachments;
-
-  /// 消息时间戳
+  final MessageRole role;
   final DateTime timestamp;
-
-  /// Token 消耗数
-  @Default(0)
-  final int tokenCount;
-
-  /// 关联的 tool_call_id（仅 role=tool 时有值）
-  @Default('')
-  final String toolCallId;
+  final MessageStatus status;
+  final String? model;          // 使用的模型
+  final int? tokenCount;        // token数量
+  final double? latency;        // 响应延迟(ms)
+  final Map<String, dynamic>? metadata; // 额外元数据
+  final List<MessageAttachment>? attachments; // 附件列表
 
   const ChatMessage({
     required this.id,
     required this.conversationId,
-    required this.role,
     required this.content,
-    this.attachments = const [],
+    required this.role,
     required this.timestamp,
-    this.tokenCount = 0,
-    this.toolCallId = '',
+    this.status = MessageStatus.completed,
+    this.model,
+    this.tokenCount,
+    this.latency,
+    this.metadata,
+    this.attachments,
   });
 
-  /// 从 JSON 反序列化
-  factory ChatMessage.fromJson(Map<String, dynamic> json) =>
-      _$ChatMessageFromJson(json);
+  /// 从JSON创建
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] as String,
+      conversationId: json['conversationId'] as String,
+      content: json['content'] as String,
+      role: MessageRole.values.firstWhere(
+        (e) => e.value == json['role'],
+        orElse: () => MessageRole.user,
+      ),
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      status: MessageStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => MessageStatus.completed,
+      ),
+      model: json['model'] as String?,
+      tokenCount: json['tokenCount'] as int?,
+      latency: (json['latency'] as num?)?.toDouble(),
+      metadata: json['metadata'] as Map<String, dynamic>?,
+    );
+  }
 
-  /// 序列化为 JSON
-  Map<String, dynamic> toJson() => _$ChatMessageToJson(this);
+  /// 转为JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'conversationId': conversationId,
+      'content': content,
+      'role': role.value,
+      'timestamp': timestamp.toIso8601String(),
+      'status': status.name,
+      'model': model,
+      'tokenCount': tokenCount,
+      'latency': latency,
+      'metadata': metadata,
+    };
+  }
 
-  /// 创建副本（用于更新字段）
+  /// 转为LLM API格式
+  Map<String, dynamic> toApiFormat() {
+    return {
+      'role': role.value,
+      'content': content,
+    };
+  }
+
+  /// 复制并修改
   ChatMessage copyWith({
     String? id,
     String? conversationId,
-    MessageRole? role,
     String? content,
-    List<String>? attachments,
+    MessageRole? role,
     DateTime? timestamp,
+    MessageStatus? status,
+    String? model,
     int? tokenCount,
-    String? toolCallId,
+    double? latency,
+    Map<String, dynamic>? metadata,
+    List<MessageAttachment>? attachments,
   }) {
     return ChatMessage(
       id: id ?? this.id,
       conversationId: conversationId ?? this.conversationId,
-      role: role ?? this.role,
       content: content ?? this.content,
-      attachments: attachments ?? this.attachments,
+      role: role ?? this.role,
       timestamp: timestamp ?? this.timestamp,
+      status: status ?? this.status,
+      model: model ?? this.model,
       tokenCount: tokenCount ?? this.tokenCount,
-      toolCallId: toolCallId ?? this.toolCallId,
+      latency: latency ?? this.latency,
+      metadata: metadata ?? this.metadata,
+      attachments: attachments ?? this.attachments,
     );
   }
+
+  @override
+  List<Object?> get props => [id, conversationId, content, role, timestamp, status];
+}
+
+/// 消息附件
+class MessageAttachment extends Equatable {
+  final String id;
+  final String type; // image, file, audio, video
+  final String url;
+  final String? name;
+  final int? size;
+  final Map<String, dynamic>? extra;
+
+  const MessageAttachment({
+    required this.id,
+    required this.type,
+    required this.url,
+    this.name,
+    this.size,
+    this.extra,
+  });
+
+  factory MessageAttachment.fromJson(Map<String, dynamic> json) {
+    return MessageAttachment(
+      id: json['id'] as String,
+      type: json['type'] as String,
+      url: json['url'] as String,
+      name: json['name'] as String?,
+      size: json['size'] as int?,
+      extra: json['extra'] as Map<String, dynamic>?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id, 'type': type, 'url': url,
+    'name': name, 'size': size, 'extra': extra,
+  };
+
+  @override
+  List<Object?> get props => [id, type, url, name, size];
 }

@@ -57,7 +57,7 @@ class AppTheme {
     ),
 
     // 卡片样式
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusMedium),
@@ -97,7 +97,7 @@ class AppTheme {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
 
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 0,
       color: const Color(0xFF252540),
       shape: RoundedRectangleBorder(

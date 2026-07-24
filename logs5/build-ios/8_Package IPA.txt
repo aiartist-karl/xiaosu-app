@@ -1,0 +1,11 @@
+﻿2026-07-24T00:34:54.8604700Z ##[group]Run mkdir -p Payload
+2026-07-24T00:34:54.8605570Z [36;1mmkdir -p Payload[0m
+2026-07-24T00:34:54.8605800Z [36;1mcp -r build/ios/iphoneos/Runner.app Payload/[0m
+2026-07-24T00:34:54.8606070Z [36;1mzip -r xiaosu-ios-unsigned.ipa Payload[0m
+2026-07-24T00:34:54.9846140Z shell: /bin/bash -e {0}
+2026-07-24T00:34:54.9846370Z env:
+2026-07-24T00:34:54.9846760Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:34:54.9847230Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:34:54.9847430Z ##[endgroup]
+2026-07-24T00:34:55.0764050Z cp: build/ios/iphoneos/Runner.app: No such file or directory
+2026-07-24T00:34:55.0784290Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,17 @@
+﻿2026-07-24T01:07:05.7061020Z ##[group]Run flutter build ios --release --no-codesign
+2026-07-24T01:07:05.7061890Z [36;1mflutter build ios --release --no-codesign[0m
+2026-07-24T01:07:05.8932320Z shell: /bin/bash -e {0}
+2026-07-24T01:07:05.8932700Z env:
+2026-07-24T01:07:05.8933050Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T01:07:05.8933950Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T01:07:05.8934530Z ##[endgroup]
+2026-07-24T01:07:06.6286510Z Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+2026-07-24T01:07:10.0044990Z Building com.xiaosu.xiaosuCore for device (ios-release)...
+2026-07-24T01:07:39.1516700Z Running pod install...                                             26.9s
+2026-07-24T01:08:58.0590570Z Running Xcode build...                                          
+2026-07-24T01:08:58.0599470Z Xcode build done.                                           78.9s
+2026-07-24T01:08:59.4722690Z Failed to build iOS app
+2026-07-24T01:08:59.4779160Z Error (Xcode): lib/models/chat_message.dart:7:6: Error: Error when reading 'lib/models/chat_message.g.dart': No such file or directory
+2026-07-24T01:08:59.4779730Z 
+2026-07-24T01:08:59.4826510Z Encountered error while building for device.
+2026-07-24T01:08:59.4966790Z ##[error]Process completed with exit code 1.

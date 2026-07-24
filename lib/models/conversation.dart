@@ -1,69 +1,92 @@
 // ============================================================================
-// 小酥 (XiaoSu) - 对话模型
+// 小酥 - 对话模型
 // ============================================================================
 
-import 'package:json_annotation/json_annotation.dart';
+import 'package:equatable/equatable.dart';
 
-part 'conversation.g.dart';
+/// 对话状态
+enum ConversationStatus {
+  active,     // 活跃
+  archived,   // 已归档
+  deleted,    // 已删除
+}
 
 /// 对话模型
-@JsonSerializable()
-class Conversation {
-  /// 对话唯一 ID
+class Conversation extends Equatable {
   final String id;
-
-  /// 对话标题
   final String title;
-
-  /// 角色设定（Persona）
-  final String persona;
-
-  /// 创建时间
   final DateTime createdAt;
-
-  /// 最后更新时间
   final DateTime updatedAt;
-
-  /// 关联的话题 ID（话题追踪任务关联的对话）
-  @Default('')
-  final String topicId;
-
-  /// 消息总数
-  @Default(0)
-  final int messageCount;
+  final ConversationStatus status;
+  final String? systemPrompt;    // 系统提示词
+  final String? modelId;         // 使用的模型ID
+  final int messageCount;        // 消息数量
+  final String? lastMessage;     // 最后一条消息摘要
+  final Map<String, dynamic>? metadata;
 
   const Conversation({
     required this.id,
     required this.title,
-    required this.persona,
     required this.createdAt,
     required this.updatedAt,
-    this.topicId = '',
+    this.status = ConversationStatus.active,
+    this.systemPrompt,
+    this.modelId,
     this.messageCount = 0,
+    this.lastMessage,
+    this.metadata,
   });
 
-  factory Conversation.fromJson(Map<String, dynamic> json) =>
-      _$ConversationFromJson(json);
+  factory Conversation.fromJson(Map<String, dynamic> json) {
+    return Conversation(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      status: ConversationStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => ConversationStatus.active,
+      ),
+      systemPrompt: json['systemPrompt'] as String?,
+      modelId: json['modelId'] as String?,
+      messageCount: json['messageCount'] as int? ?? 0,
+      lastMessage: json['lastMessage'] as String?,
+      metadata: json['metadata'] as Map<String, dynamic>?,
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$ConversationToJson(this);
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'status': status.name,
+    'systemPrompt': systemPrompt,
+    'modelId': modelId,
+    'messageCount': messageCount,
+    'lastMessage': lastMessage,
+    'metadata': metadata,
+  };
 
   Conversation copyWith({
-    String? id,
-    String? title,
-    String? persona,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    String? topicId,
-    int? messageCount,
+    String? id, String? title, DateTime? createdAt, DateTime? updatedAt,
+    ConversationStatus? status, String? systemPrompt, String? modelId,
+    int? messageCount, String? lastMessage, Map<String, dynamic>? metadata,
   }) {
     return Conversation(
       id: id ?? this.id,
       title: title ?? this.title,
-      persona: persona ?? this.persona,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      topicId: topicId ?? this.topicId,
+      status: status ?? this.status,
+      systemPrompt: systemPrompt ?? this.systemPrompt,
+      modelId: modelId ?? this.modelId,
       messageCount: messageCount ?? this.messageCount,
+      lastMessage: lastMessage ?? this.lastMessage,
+      metadata: metadata ?? this.metadata,
     );
   }
+
+  @override
+  List<Object?> get props => [id, title, createdAt, updatedAt, status];
 }

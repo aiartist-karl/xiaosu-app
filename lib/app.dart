@@ -12,13 +12,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:xiaosu_core/ui/theme/app_theme.dart';
-import 'package:xiaosu_core/ui/pages/home_page.dart';
-import 'package:xiaosu_core/ui/pages/chat_page.dart';
-import 'package:xiaosu_core/ui/pages/settings_page.dart';
-import 'package:xiaosu_core/ui/pages/skills_page.dart';
-import 'package:xiaosu_core/ui/pages/tasks_page.dart';
-import 'package:xiaosu_core/ui/pages/error_page.dart';
+import 'package:xiaosu/ui/theme/app_theme.dart';
+import 'package:xiaosu/ui/pages/error_page.dart';
+
+// ─── Shell 布局 ─────────────────────────────────────────────
+import 'package:xiaosu/presentation/shell/shell_screen.dart';
+
+// ─── 主 Tab 页面 ─────────────────────────────────────────────
+import 'package:xiaosu/presentation/chat/session_list_screen.dart';
+import 'package:xiaosu/presentation/settings/skill_manager_screen.dart';
+import 'package:xiaosu/presentation/dashboard/dashboard_screen.dart';
+import 'package:xiaosu/presentation/monitor/monitor_dashboard.dart';
+import 'package:xiaosu/presentation/settings/settings_screen.dart';
+
+// ─── 子页面（从 Tab 页进入，需要返回按钮）───────────────────
+import 'package:xiaosu/presentation/chat/chat_screen.dart';
+import 'package:xiaosu/presentation/settings/model_settings_screen.dart';
+import 'package:xiaosu/presentation/plugin_store/plugin_store_screen.dart';
+import 'package:xiaosu/presentation/workflow_editor/workflow_editor_screen.dart';
 
 /// ============================================================================
 // 小酥 APP 根 Widget
@@ -58,7 +69,7 @@ class XiaoSuApp extends ConsumerWidget {
   /// 构建全局路由配置
   GoRouter _buildRouter() {
     return GoRouter(
-      // 初始路由：首页
+      // 初始路由：会话列表（主页）
       initialLocation: '/',
 
       // 全局错误页面处理
@@ -69,42 +80,103 @@ class XiaoSuApp extends ConsumerWidget {
 
       // ─── 路由表定义 ─────────────────────────────────────────
       routes: [
-        // 首页 —— 对话列表 / 主入口
-        GoRoute(
-          path: '/',
-          name: 'home',
-          builder: (context, state) => const HomePage(),
+        // ===== ShellRoute：底部导航栏包裹的 5 个主 Tab =====
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) {
+            return ShellScreen(navigationShell: navigationShell);
+          },
+          branches: [
+            // Tab 1: 对话（会话列表）
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  name: 'home',
+                  builder: (context, state) => const SessionListScreen(),
+                ),
+              ],
+            ),
+            // Tab 2: 技能
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/skills',
+                  name: 'skills',
+                  builder: (context, state) => const SkillManagerScreen(),
+                ),
+              ],
+            ),
+            // Tab 3: 任务（仪表盘）
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/tasks',
+                  name: 'tasks',
+                  builder: (context, state) => const DashboardScreen(),
+                ),
+              ],
+            ),
+            // Tab 4: 监控
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/monitor',
+                  name: 'monitor',
+                  builder: (context, state) => const MonitorDashboard(),
+                ),
+              ],
+            ),
+            // Tab 5: 设置
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/settings',
+                  name: 'settings',
+                  builder: (context, state) => const SettingsScreen(),
+                ),
+              ],
+            ),
+          ],
         ),
 
-        // 对话页 —— 与 AI 进行实时对话
+        // ===== 子页面（Shell 外，有返回按钮）=====
+
+        // 对话页 —— 与 AI 进行实时对话（完整版）
         GoRoute(
           path: '/chat/:conversationId',
           name: 'chat',
           builder: (context, state) {
             final conversationId = state.pathParameters['conversationId']!;
-            return ChatPage(conversationId: conversationId);
+            return ChatScreen(conversationId: conversationId);
           },
         ),
 
-        // 技能页 —— 查看和管理已注册技能
+        // 新建对话
         GoRoute(
-          path: '/skills',
-          name: 'skills',
-          builder: (context, state) => const SkillsPage(),
+          path: '/chat-new',
+          name: 'chat-new',
+          builder: (context, state) => const ChatScreen(conversationId: ''),
         ),
 
-        // 任务页 —— 查看和管理定时任务 / 话题追踪
+        // 模型设置
         GoRoute(
-          path: '/tasks',
-          name: 'tasks',
-          builder: (context, state) => const TasksPage(),
+          path: '/settings/model',
+          name: 'model-settings',
+          builder: (context, state) => const ModelSettingsScreen(),
         ),
 
-        // 设置页 —— 用户偏好、API Key 配置等
+        // 工作流编辑器
         GoRoute(
-          path: '/settings',
-          name: 'settings',
-          builder: (context, state) => const SettingsPage(),
+          path: '/workflow',
+          name: 'workflow',
+          builder: (context, state) => const WorkflowEditorScreen(),
+        ),
+
+        // 插件商店
+        GoRoute(
+          path: '/plugins',
+          name: 'plugins',
+          builder: (context, state) => const PluginStoreScreen(),
         ),
       ],
     );

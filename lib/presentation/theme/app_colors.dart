@@ -157,4 +157,36 @@ class AppColors {
   /// 获取表面变体色
   static Color surfaceVariant({required bool isDark}) =>
       isDark ? surfaceVariantDark : surfaceVariantLight;
+
+  /// 获取文字辅助色
+  static Color textHint(bool isDark) =>
+      isDark ? textHintDark : textHintLight;
+
+  /// 获取错误色
+  static Color error(bool isDark) =>
+      isDark ? errorDark : errorLight;
+
+  /// 获取成功色
+  static Color success(bool isDark) =>
+      isDark ? successDark : successLight;
+
+  /// 获取警告色
+  static Color warning(bool isDark) =>
+      isDark ? warningDark : warningLight;
+
+  /// 获取信息色
+  static Color info(bool isDark) =>
+      isDark ? infoDark : infoLight;
+
+  /// 获取边框色
+  static Color border(bool isDark) =>
+      isDark ? borderDark : borderLight;
+
+  /// 获取用户气泡色
+  static Color userBubble(bool isDark) =>
+      isDark ? userBubbleDark : userBubbleLight;
+
+  /// 获取AI气泡色
+  static Color aiBubble(bool isDark) =>
+      isDark ? aiBubbleDark : aiBubbleLight;
 }

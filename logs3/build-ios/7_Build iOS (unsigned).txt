@@ -1,0 +1,25 @@
+﻿2026-07-24T00:22:05.5679370Z ##[group]Run flutter build ios --release --no-codesign
+2026-07-24T00:22:05.5680060Z [36;1mflutter build ios --release --no-codesign[0m
+2026-07-24T00:22:05.5754690Z shell: /bin/bash -e {0}
+2026-07-24T00:22:05.5754900Z env:
+2026-07-24T00:22:05.5755180Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:22:05.5755610Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:22:05.5755860Z ##[endgroup]
+2026-07-24T00:22:06.5464450Z Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+2026-07-24T00:22:18.5725180Z Building com.xiaosu.app for device (ios-release)...
+2026-07-24T00:22:18.6147340Z Upgrading Info.plist
+2026-07-24T00:23:08.5353510Z Running pod install...                                             45.9s
+2026-07-24T00:23:28.5343900Z Running Xcode build...                                          
+2026-07-24T00:23:28.5448250Z Xcode build done.                                           20.0s
+2026-07-24T00:23:32.3831590Z Error (Xcode): Unable to open base configuration reference file '/Users/runner/work/xiaosu-app/xiaosu-app/ios/Flutter/Flutter/Release.xcconfig'.
+2026-07-24T00:23:32.3834770Z Failed to build iOS app
+2026-07-24T00:23:32.3938510Z /Users/runner/work/xiaosu-app/xiaosu-app/ios/Runner.xcodeproj
+2026-07-24T00:23:32.3994230Z 
+2026-07-24T00:23:32.4096580Z Error (Xcode): There is no XCFramework found at '/Users/runner/work/xiaosu-app/xiaosu-app/ios/Flutter/Flutter.xcframework'.
+2026-07-24T00:23:32.4198330Z 
+2026-07-24T00:23:32.4300860Z Error (Xcode): Unable to load contents of file list: '/Target Support Files/Pods-Runner/Pods-Runner-resources-Release-input-files.xcfilelist'
+2026-07-24T00:23:32.4403220Z 
+2026-07-24T00:23:32.4504610Z Error (Xcode): Unable to load contents of file list: '/Target Support Files/Pods-Runner/Pods-Runner-resources-Release-output-files.xcfilelist'
+2026-07-24T00:23:32.4606980Z 
+2026-07-24T00:23:32.4708020Z Encountered error while building for device.
+2026-07-24T00:23:32.4823380Z ##[error]Process completed with exit code 1.

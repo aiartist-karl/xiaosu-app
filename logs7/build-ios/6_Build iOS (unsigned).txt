@@ -1,0 +1,18 @@
+﻿2026-07-24T00:48:16.5916820Z ##[group]Run flutter build ios --release --no-codesign
+2026-07-24T00:48:16.5917190Z [36;1mflutter build ios --release --no-codesign[0m
+2026-07-24T00:48:16.5955190Z shell: /bin/bash -e {0}
+2026-07-24T00:48:16.5955430Z env:
+2026-07-24T00:48:16.5955800Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:48:16.5956200Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:48:16.5956790Z ##[endgroup]
+2026-07-24T00:48:17.2103110Z Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+2026-07-24T00:48:19.6569440Z Building com.xiaosu.xiaosuCore for device (ios-release)...
+2026-07-24T00:48:19.6845290Z Upgrading Info.plist
+2026-07-24T00:48:45.2891600Z Running pod install...                                             23.8s
+2026-07-24T00:49:50.2486120Z Running Xcode build...                                          
+2026-07-24T00:49:50.2493160Z Xcode build done.                                           64.9s
+2026-07-24T00:49:51.5254380Z Failed to build iOS app
+2026-07-24T00:49:51.5434270Z Error (Xcode): Error: Couldn't resolve the package 'xiaosu_core' in 'package:xiaosu_core/app.dart'.
+2026-07-24T00:49:51.5434620Z 
+2026-07-24T00:49:51.5474760Z Encountered error while building for device.
+2026-07-24T00:49:51.5575620Z ##[error]Process completed with exit code 1.

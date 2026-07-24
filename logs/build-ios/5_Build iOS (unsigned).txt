@@ -1,0 +1,20 @@
+﻿2026-07-24T00:10:39.2036070Z ##[group]Run flutter build ios --release --no-codesign
+2026-07-24T00:10:39.2037590Z [36;1mflutter build ios --release --no-codesign[0m
+2026-07-24T00:10:39.2088370Z shell: /bin/bash -e {0}
+2026-07-24T00:10:39.2088660Z env:
+2026-07-24T00:10:39.2088930Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:10:39.2089340Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:10:39.2089540Z ##[endgroup]
+2026-07-24T00:10:40.2124020Z Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+2026-07-24T00:10:44.2340800Z Unable to get Xcode project information:
+2026-07-24T00:10:44.2342350Z  2026-07-24 00:10:43.813 xcodebuild[3559:17614] -[XCBuildConfiguration group]: unrecognized selector sent to instance 0x9b7c46d80
+2026-07-24T00:10:44.2344980Z 2026-07-24 00:10:43.874 xcodebuild[3559:17614] Writing error result bundle to /var/folders/8j/sfr9qqcj73j4p6nhwcfpr0th0000gn/T/ResultBundle_2026-24-07_00-10-0043.xcresult
+2026-07-24T00:10:44.2346750Z xcodebuild: error: Unable to read project 'Runner.xcodeproj'.
+2026-07-24T00:10:44.2367730Z 	Reason: The project ‘Runner’ is damaged and cannot be opened. Examine the project file for invalid edits or unresolved source control conflicts.
+2026-07-24T00:10:44.2371490Z 
+2026-07-24T00:10:44.2371950Z Path: /Users/runner/work/xiaosu-app/xiaosu-app/ios/Runner.xcodeproj
+2026-07-24T00:10:44.2375350Z Exception: -[XCBuildConfiguration group]: unrecognized selector sent to instance 0x9b7c46d80
+2026-07-24T00:10:44.2376220Z 
+2026-07-24T00:10:44.2376230Z 
+2026-07-24T00:10:44.2376240Z 
+2026-07-24T00:10:44.2537590Z ##[error]Process completed with exit code 1.

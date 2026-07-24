@@ -1,0 +1,334 @@
+﻿2026-07-24T00:57:21.9820530Z ##[group]Run # Save original pubspec.yaml content
+2026-07-24T00:57:21.9823130Z [36;1m# Save original pubspec.yaml content[0m
+2026-07-24T00:57:21.9824270Z [36;1mPKG_NAME=$(grep '^name:' pubspec.yaml | awk '{print $2}')[0m
+2026-07-24T00:57:21.9825190Z [36;1mecho "Package name: $PKG_NAME"[0m
+2026-07-24T00:57:21.9826010Z [36;1m[0m
+2026-07-24T00:57:21.9826580Z [36;1m# Remove existing iOS directory[0m
+2026-07-24T00:57:21.9827790Z [36;1mrm -rf ios/[0m
+2026-07-24T00:57:21.9828380Z [36;1m[0m
+2026-07-24T00:57:21.9829220Z [36;1m# Regenerate iOS project using the exact package name[0m
+2026-07-24T00:57:21.9830380Z [36;1mflutter create --platforms=ios --project-name="$PKG_NAME" --org=com.xiaosu .[0m
+2026-07-24T00:57:21.9831480Z [36;1m[0m
+2026-07-24T00:57:21.9832330Z [36;1m# Verify pubspec name wasn't changed[0m
+2026-07-24T00:57:21.9833420Z [36;1mCURRENT_NAME=$(grep '^name:' pubspec.yaml | awk '{print $2}')[0m
+2026-07-24T00:57:21.9834520Z [36;1mecho "Current name after create: $CURRENT_NAME"[0m
+2026-07-24T00:57:21.9835640Z [36;1m[0m
+2026-07-24T00:57:21.9836440Z [36;1m# Force-set the correct name if flutter create changed it[0m
+2026-07-24T00:57:21.9837480Z [36;1mif [ "$CURRENT_NAME" != "$PKG_NAME" ]; then[0m
+2026-07-24T00:57:21.9838400Z [36;1m  echo "Fixing package name from $CURRENT_NAME to $PKG_NAME"[0m
+2026-07-24T00:57:21.9839570Z [36;1m  sed -i '' "s/^name: $CURRENT_NAME/name: $PKG_NAME/" pubspec.yaml[0m
+2026-07-24T00:57:21.9840450Z [36;1mfi[0m
+2026-07-24T00:57:21.9841040Z [36;1m[0m
+2026-07-24T00:57:21.9841630Z [36;1m# Ensure Flutter.xcframework is in place[0m
+2026-07-24T00:57:21.9842900Z [36;1mFLUTTER_CACHE=$(find $FLUTTER_ROOT -name "Flutter.xcframework" -type d 2>/dev/null | head -1)[0m
+2026-07-24T00:57:21.9844300Z [36;1mif [ -n "$FLUTTER_CACHE" ] && [ ! -d "ios/Flutter/Flutter.xcframework" ]; then[0m
+2026-07-24T00:57:21.9845460Z [36;1m  cp -r "$FLUTTER_CACHE" ios/Flutter/[0m
+2026-07-24T00:57:21.9846170Z [36;1mfi[0m
+2026-07-24T00:57:21.9846900Z [36;1m[0m
+2026-07-24T00:57:21.9847590Z [36;1m# Restore custom Info.plist if needed[0m
+2026-07-24T00:57:21.9848500Z [36;1mif [ -f "ios/Runner/Info.plist" ]; then[0m
+2026-07-24T00:57:21.9849240Z [36;1m  echo "Info.plist exists"[0m
+2026-07-24T00:57:21.9850210Z [36;1mfi[0m
+2026-07-24T00:57:21.9850710Z [36;1m[0m
+2026-07-24T00:57:21.9851910Z [36;1m# Run pub get to set up all dependencies[0m
+2026-07-24T00:57:21.9852690Z [36;1mflutter pub get[0m
+2026-07-24T00:57:21.9853580Z [36;1m[0m
+2026-07-24T00:57:21.9854090Z [36;1m# Verify[0m
+2026-07-24T00:57:21.9855020Z [36;1mecho "=== Final package name ==="[0m
+2026-07-24T00:57:21.9855750Z [36;1mhead -3 pubspec.yaml[0m
+2026-07-24T00:57:21.9856640Z [36;1mecho "=== iOS directory ==="[0m
+2026-07-24T00:57:21.9857320Z [36;1mls ios/[0m
+2026-07-24T00:57:21.9857990Z [36;1mecho "=== Flutter dir ==="[0m
+2026-07-24T00:57:21.9858640Z [36;1mls ios/Flutter/[0m
+2026-07-24T00:57:22.0566050Z shell: /bin/bash -e {0}
+2026-07-24T00:57:22.0567170Z env:
+2026-07-24T00:57:22.0568130Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:57:22.0569090Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:57:22.0569700Z ##[endgroup]
+2026-07-24T00:57:22.1345320Z Package name: xiaosu
+2026-07-24T00:57:22.5740030Z 
+2026-07-24T00:57:22.5758170Z   ╔════════════════════════════════════════════════════════════════════════════╗
+2026-07-24T00:57:22.5760200Z   ║                 Welcome to Flutter! - https://flutter.dev                  ║
+2026-07-24T00:57:22.5764070Z   ║                                                                            ║
+2026-07-24T00:57:22.5765170Z   ║ The Flutter tool uses Google Analytics to anonymously report feature usage ║
+2026-07-24T00:57:22.5766390Z   ║ statistics and basic crash reports. This data is used to help improve      ║
+2026-07-24T00:57:22.5767860Z   ║ Flutter tools over time.                                                   ║
+2026-07-24T00:57:22.5768970Z   ║                                                                            ║
+2026-07-24T00:57:22.5771460Z   ║ Flutter tool analytics are not sent on the very first run. To disable      ║
+2026-07-24T00:57:22.5772080Z   ║ reporting, type 'flutter config --no-analytics'. To display the current    ║
+2026-07-24T00:57:22.5772690Z   ║ setting, type 'flutter config'. If you opt out of analytics, an opt-out    ║
+2026-07-24T00:57:22.5773240Z   ║ event will be sent, and then no further information will be sent by the    ║
+2026-07-24T00:57:22.5773810Z   ║ Flutter tool.                                                              ║
+2026-07-24T00:57:22.5774340Z   ║                                                                            ║
+2026-07-24T00:57:22.5774900Z   ║ By downloading the Flutter SDK, you agree to the Google Terms of Service.  ║
+2026-07-24T00:57:22.5775360Z   ║ The Google Privacy Policy describes how data is handled in this service.   ║
+2026-07-24T00:57:22.5775870Z   ║                                                                            ║
+2026-07-24T00:57:22.5776320Z   ║ Moreover, Flutter includes the Dart SDK, which may send usage metrics and  ║
+2026-07-24T00:57:22.5777240Z   ║ crash reports to Google.                                                   ║
+2026-07-24T00:57:22.5777720Z   ║                                                                            ║
+2026-07-24T00:57:22.5778240Z   ║ Read about data we send with crash reports:                                ║
+2026-07-24T00:57:22.5779220Z   ║ https://flutter.dev/to/crash-reporting                                     ║
+2026-07-24T00:57:22.5779830Z   ║                                                                            ║
+2026-07-24T00:57:22.5780270Z   ║ See Google's privacy policy:                                               ║
+2026-07-24T00:57:22.5780830Z   ║ https://policies.google.com/privacy                                        ║
+2026-07-24T00:57:22.5781350Z   ║                                                                            ║
+2026-07-24T00:57:22.5781740Z   ║ To disable animations in this tool, use                                    ║
+2026-07-24T00:57:22.5782300Z   ║ 'flutter config --no-cli-animations'.                                      ║
+2026-07-24T00:57:22.5782980Z   ╚════════════════════════════════════════════════════════════════════════════╝
+2026-07-24T00:57:22.5783400Z 
+2026-07-24T00:57:28.1368490Z Recreating project ....
+2026-07-24T00:57:28.1901280Z   ios/Runner.xcworkspace/contents.xcworkspacedata (created)
+2026-07-24T00:57:28.2003000Z   ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist (created)
+2026-07-24T00:57:28.2017340Z   ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings (created)
+2026-07-24T00:57:28.2052460Z   ios/Runner/Info.plist (created)
+2026-07-24T00:57:28.2128860Z   ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png (created)
+2026-07-24T00:57:28.2177660Z   ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md (created)
+2026-07-24T00:57:28.2182080Z   ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json (created)
+2026-07-24T00:57:28.2183000Z   ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png (created)
+2026-07-24T00:57:28.2183700Z   ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png (created)
+2026-07-24T00:57:28.2184350Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png (created)
+2026-07-24T00:57:28.2185040Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png (created)
+2026-07-24T00:57:28.2187060Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png (created)
+2026-07-24T00:57:28.2187820Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png (created)
+2026-07-24T00:57:28.2189520Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png (created)
+2026-07-24T00:57:28.2193100Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png (created)
+2026-07-24T00:57:28.2193780Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png (created)
+2026-07-24T00:57:28.2194520Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png (created)
+2026-07-24T00:57:28.2195700Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png (created)
+2026-07-24T00:57:28.2200260Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json (created)
+2026-07-24T00:57:28.2206530Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png (created)
+2026-07-24T00:57:28.2212250Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png (created)
+2026-07-24T00:57:28.2217780Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png (created)
+2026-07-24T00:57:28.2220260Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png (created)
+2026-07-24T00:57:28.2236150Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png (created)
+2026-07-24T00:57:28.2290330Z   ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png (created)
+2026-07-24T00:57:28.2298850Z   ios/Runner/Base.lproj/LaunchScreen.storyboard (created)
+2026-07-24T00:57:28.2299620Z   ios/Runner/Base.lproj/Main.storyboard (created)
+2026-07-24T00:57:28.2300180Z   ios/Runner.xcodeproj/project.xcworkspace/contents.xcworkspacedata (created)
+2026-07-24T00:57:28.2300950Z   ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist (created)
+2026-07-24T00:57:28.2302340Z   ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings (created)
+2026-07-24T00:57:28.2303640Z   ios/Flutter/Debug.xcconfig (created)
+2026-07-24T00:57:28.2307780Z   ios/Flutter/Release.xcconfig (created)
+2026-07-24T00:57:28.2312210Z   ios/Flutter/AppFrameworkInfo.plist (created)
+2026-07-24T00:57:28.2314820Z   ios/.gitignore (created)
+2026-07-24T00:57:28.2331690Z   xiaosu.iml (created)
+2026-07-24T00:57:28.2333420Z   ios/RunnerTests/RunnerTests.swift (created)
+2026-07-24T00:57:28.2334360Z   ios/Runner/Runner-Bridging-Header.h (created)
+2026-07-24T00:57:28.2335060Z   ios/Runner/AppDelegate.swift (created)
+2026-07-24T00:57:28.2335660Z   ios/Runner.xcodeproj/project.pbxproj (created)
+2026-07-24T00:57:28.2375410Z   ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme (created)
+2026-07-24T00:57:28.2384120Z   .idea/runConfigurations/main_dart.xml (created)
+2026-07-24T00:57:28.2387230Z   .idea/libraries/Dart_SDK.xml (created)
+2026-07-24T00:57:28.2392900Z   .idea/libraries/KotlinJavaRuntime.xml (created)
+2026-07-24T00:57:28.2396800Z   .idea/modules.xml (created)
+2026-07-24T00:57:28.2400110Z   .idea/workspace.xml (created)
+2026-07-24T00:57:28.4122680Z Resolving dependencies...
+2026-07-24T00:57:30.5109820Z Downloading packages...
+2026-07-24T00:57:40.0999320Z Got dependencies.
+2026-07-24T00:57:47.5310300Z Wrote 45 files.
+2026-07-24T00:57:47.5310880Z 
+2026-07-24T00:57:47.5311030Z All done!
+2026-07-24T00:57:47.5323370Z You can find general documentation for Flutter at: https://docs.flutter.dev/
+2026-07-24T00:57:47.5324190Z Detailed API documentation is available at: https://api.flutter.dev/
+2026-07-24T00:57:47.5324960Z If you prefer video documentation, consider: https://www.youtube.com/c/flutterdev
+2026-07-24T00:57:47.5325390Z 
+2026-07-24T00:57:47.5325580Z In order to run your application, type:
+2026-07-24T00:57:47.5325740Z 
+2026-07-24T00:57:47.5325890Z   $ cd .
+2026-07-24T00:57:47.5326200Z   $ flutter run
+2026-07-24T00:57:47.5326350Z 
+2026-07-24T00:57:47.5326560Z Your application code is in ./lib/main.dart.
+2026-07-24T00:57:47.5326800Z 
+2026-07-24T00:57:47.5540760Z Current name after create: xiaosu
+2026-07-24T00:57:47.9515530Z Info.plist exists
+2026-07-24T00:57:48.3635530Z Resolving dependencies...
+2026-07-24T00:57:49.1556860Z Downloading packages...
+2026-07-24T00:57:49.4516930Z   _fe_analyzer_shared 72.0.0 (105.0.0 available)
+2026-07-24T00:57:49.4525580Z   analyzer 6.7.0 (14.1.0 available)
+2026-07-24T00:57:49.4526310Z   analyzer_plugin 0.11.3 (0.14.14 available)
+2026-07-24T00:57:49.4527030Z   archive 3.6.1 (4.0.9 available)
+2026-07-24T00:57:49.4527460Z   async 2.11.0 (2.13.1 available)
+2026-07-24T00:57:49.4527890Z   audioplayers 5.2.1 (6.8.1 available)
+2026-07-24T00:57:49.4548530Z   audioplayers_android 4.0.3 (5.3.0 available)
+2026-07-24T00:57:49.4549280Z   audioplayers_darwin 5.0.2 (6.5.0 available)
+2026-07-24T00:57:49.4549660Z   audioplayers_linux 3.1.0 (4.3.0 available)
+2026-07-24T00:57:49.4550040Z   audioplayers_platform_interface 6.1.0 (7.2.0 available)
+2026-07-24T00:57:49.4550460Z   audioplayers_web 4.1.0 (5.3.0 available)
+2026-07-24T00:57:49.4550880Z   audioplayers_windows 3.1.0 (4.4.1 available)
+2026-07-24T00:57:49.4551310Z   battery_plus 3.0.6 (7.1.1 available)
+2026-07-24T00:57:49.4551960Z   battery_plus_platform_interface 1.2.2 (2.0.1 available)
+2026-07-24T00:57:49.4552400Z   boolean_selector 2.1.1 (2.1.2 available)
+2026-07-24T00:57:49.4553570Z   build 2.4.1 (4.0.8 available)
+2026-07-24T00:57:49.4555550Z   build_config 1.1.1 (1.3.1 available)
+2026-07-24T00:57:49.4559020Z   build_daemon 4.0.2 (4.1.2 available)
+2026-07-24T00:57:49.4560420Z   build_resolvers 2.4.2 (3.0.4 available)
+2026-07-24T00:57:49.4563350Z   build_runner 2.4.13 (2.15.2 available)
+2026-07-24T00:57:49.4564090Z   build_runner_core 7.3.2 (9.3.2 available)
+2026-07-24T00:57:49.4649610Z   cached_network_image 3.4.0 (3.4.1 available)
+2026-07-24T00:57:49.4650250Z   cached_network_image_web 1.3.0 (1.3.1 available)
+2026-07-24T00:57:49.4650560Z   camera 0.11.0+2 (0.12.0+2 available)
+2026-07-24T00:57:49.4650810Z   camera_android_camerax 0.6.10+3 (0.7.4+2 available)
+2026-07-24T00:57:49.4651160Z   camera_avfoundation 0.9.19 (0.10.2 available)
+2026-07-24T00:57:49.4651770Z   camera_platform_interface 2.10.0 (2.13.1 available)
+2026-07-24T00:57:49.4652170Z   camera_web 0.3.5 (0.3.5+4 available)
+2026-07-24T00:57:49.4652520Z   characters 1.3.0 (1.4.1 available)
+2026-07-24T00:57:49.4652910Z   checked_yaml 2.0.3 (2.0.4 available)
+2026-07-24T00:57:49.4653450Z   cli_util 0.4.2 (0.5.2 available)
+2026-07-24T00:57:49.4653800Z   clock 1.1.1 (1.1.2 available)
+2026-07-24T00:57:49.4654020Z   code_builder 4.10.1 (4.11.1 available)
+2026-07-24T00:57:49.4654410Z   collection 1.18.0 (1.19.1 available)
+2026-07-24T00:57:49.4654630Z   connectivity_plus 5.0.2 (7.3.1 available)
+2026-07-24T00:57:49.4655050Z   connectivity_plus_platform_interface 1.2.4 (2.1.0 available)
+2026-07-24T00:57:49.4655430Z   cross_file 0.3.4+2 (0.3.5+4 available)
+2026-07-24T00:57:49.4655640Z   cupertino_icons 1.0.8 (1.0.9 available)
+2026-07-24T00:57:49.4655860Z   custom_lint_core 0.7.0 (0.8.2 available)
+2026-07-24T00:57:49.4656350Z   custom_lint_visitor 1.0.0+6.7.0 (1.0.0+9.0.0 available)
+2026-07-24T00:57:49.4656680Z   dart_style 2.3.7 (3.1.12 available)
+2026-07-24T00:57:49.4657080Z   dbus 0.7.12 (0.7.14 available)
+2026-07-24T00:57:49.4657390Z   device_info_plus 10.1.2 (13.2.0 available)
+2026-07-24T00:57:49.4657760Z   device_info_plus_platform_interface 7.0.2 (8.1.0 available)
+2026-07-24T00:57:49.4658120Z   drift 2.19.1+1 (2.34.2 available)
+2026-07-24T00:57:49.4658450Z   drift_dev 2.19.1 (2.34.5 available)
+2026-07-24T00:57:49.4658720Z   fake_async 1.3.1 (1.3.3 available)
+2026-07-24T00:57:49.4658940Z   fetch_api 2.2.0 (2.3.1 available)
+2026-07-24T00:57:49.4659300Z   ffi 2.1.3 (2.2.0 available)
+2026-07-24T00:57:49.4659560Z   file_picker 6.2.1 (11.0.2 available)
+2026-07-24T00:57:49.4659950Z   file_selector_linux 0.9.3+2 (0.9.4 available)
+2026-07-24T00:57:49.4660270Z   file_selector_macos 0.9.4+2 (0.9.5 available)
+2026-07-24T00:57:49.4660680Z   file_selector_platform_interface 2.6.2 (2.7.0 available)
+2026-07-24T00:57:49.4661010Z   file_selector_windows 0.9.3+4 (0.9.3+5 available)
+2026-07-24T00:57:49.4662110Z   flutter_cache_manager 3.4.1 (3.4.2 available)
+2026-07-24T00:57:49.4662460Z   flutter_lints 3.0.2 (6.0.0 available)
+2026-07-24T00:57:49.4662890Z   flutter_local_notifications 17.2.4 (22.1.0 available)
+2026-07-24T00:57:49.4663250Z   flutter_local_notifications_linux 4.0.1 (8.0.1 available)
+2026-07-24T00:57:49.4663710Z   flutter_local_notifications_platform_interface 7.2.0 (12.0.1 available)
+2026-07-24T00:57:49.4664190Z   flutter_markdown 0.7.7+1 (discontinued replaced by flutter_markdown_plus)
+2026-07-24T00:57:49.4664600Z   flutter_plugin_android_lifecycle 2.0.26 (2.0.35 available)
+2026-07-24T00:57:49.4665180Z   flutter_riverpod 2.6.1 (3.3.2 available)
+2026-07-24T00:57:49.4665600Z   flutter_secure_storage 9.2.4 (10.3.1 available)
+2026-07-24T00:57:49.4665970Z   flutter_secure_storage_linux 1.2.3 (3.0.1 available)
+2026-07-24T00:57:49.4666360Z   flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+2026-07-24T00:57:49.4667120Z   flutter_secure_storage_platform_interface 1.1.2 (2.0.1 available)
+2026-07-24T00:57:49.4667960Z   flutter_secure_storage_web 1.2.1 (2.1.1 available)
+2026-07-24T00:57:49.4668320Z   flutter_secure_storage_windows 3.1.2 (4.2.2 available)
+2026-07-24T00:57:49.4668730Z   flutter_svg 2.1.0 (2.3.0 available)
+2026-07-24T00:57:49.4669020Z   flutter_timezone 3.0.1 (5.1.0 available)
+2026-07-24T00:57:49.4669420Z   freezed_annotation 2.4.4 (3.1.0 available)
+2026-07-24T00:57:49.4669730Z   go_router 14.8.1 (17.3.0 available)
+2026-07-24T00:57:49.4670070Z   google_fonts 6.3.0 (8.2.0 available)
+2026-07-24T00:57:49.4670390Z   http_parser 4.0.2 (4.1.2 available)
+2026-07-24T00:57:49.4670810Z   image_picker 1.1.2 (1.2.3 available)
+2026-07-24T00:57:49.4671150Z   image_picker_android 0.8.12+21 (0.8.13+19 available)
+2026-07-24T00:57:49.4671590Z   image_picker_for_web 3.0.6 (3.1.1 available)
+2026-07-24T00:57:49.4671900Z   image_picker_ios 0.8.12+2 (0.8.13+6 available)
+2026-07-24T00:57:49.4672260Z   image_picker_linux 0.2.1+2 (0.2.2 available)
+2026-07-24T00:57:49.4672610Z   image_picker_macos 0.2.1+2 (0.2.2+1 available)
+2026-07-24T00:57:49.4673280Z   image_picker_platform_interface 2.10.1 (2.11.1 available)
+2026-07-24T00:57:49.4673680Z   image_picker_windows 0.2.1+1 (0.2.2 available)
+2026-07-24T00:57:49.4673980Z   intl 0.19.0 (0.20.3 available)
+2026-07-24T00:57:49.4674280Z   js 0.6.7 (0.7.2 available)
+2026-07-24T00:57:49.4674540Z   json_annotation 4.9.0 (4.12.0 available)
+2026-07-24T00:57:49.4674920Z   json_serializable 6.9.0 (6.14.0 available)
+2026-07-24T00:57:49.4675190Z   leak_tracker 10.0.5 (11.0.2 available)
+2026-07-24T00:57:49.4675550Z   leak_tracker_flutter_testing 3.0.5 (3.0.10 available)
+2026-07-24T00:57:49.4675930Z   leak_tracker_testing 3.0.1 (3.0.2 available)
+2026-07-24T00:57:49.4676280Z   lints 3.0.0 (6.1.0 available)
+2026-07-24T00:57:49.4676460Z   local_auth 2.3.0 (3.0.2 available)
+2026-07-24T00:57:49.4676730Z   local_auth_android 1.0.47 (2.0.9 available)
+2026-07-24T00:57:49.4677050Z   local_auth_darwin 1.4.3 (2.0.3 available)
+2026-07-24T00:57:49.4677500Z   local_auth_platform_interface 1.0.10 (1.1.0 available)
+2026-07-24T00:57:49.4677920Z   local_auth_windows 1.0.11 (2.0.1 available)
+2026-07-24T00:57:49.4678440Z   macros 0.1.2-main.4 (0.1.3-main.0 available)
+2026-07-24T00:57:49.4678770Z   markdown 7.3.0 (7.3.1 available)
+2026-07-24T00:57:49.4679120Z   matcher 0.12.16+1 (0.12.20 available)
+2026-07-24T00:57:49.4679420Z   material_color_utilities 0.11.1 (0.13.0 available)
+2026-07-24T00:57:49.4679770Z   meta 1.15.0 (1.19.0 available)
+2026-07-24T00:57:49.4680050Z   mime 1.0.6 (2.0.0 available)
+2026-07-24T00:57:49.4680390Z   openai_dart 0.4.5 (7.0.1 available)
+2026-07-24T00:57:49.4680710Z   package_config 2.2.0 (3.0.0 available)
+2026-07-24T00:57:49.4681010Z   package_info_plus 8.3.1 (10.2.1 available)
+2026-07-24T00:57:49.4681340Z   package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+2026-07-24T00:57:49.4681650Z   path 1.9.0 (1.9.1 available)
+2026-07-24T00:57:49.4681860Z   path_provider 2.1.5 (2.1.6 available)
+2026-07-24T00:57:49.4682100Z   path_provider_android 2.2.15 (2.3.1 available)
+2026-07-24T00:57:49.4682790Z   path_provider_foundation 2.4.1 (2.6.0 available)
+2026-07-24T00:57:49.4683140Z   path_provider_linux 2.2.1 (2.2.2 available)
+2026-07-24T00:57:49.4683480Z   path_provider_platform_interface 2.1.2 (2.1.3 available)
+2026-07-24T00:57:49.4683860Z   permission_handler 11.4.0 (12.0.3 available)
+2026-07-24T00:57:49.4684170Z   permission_handler_android 12.1.0 (13.0.1 available)
+2026-07-24T00:57:49.4684530Z   petitparser 6.0.2 (7.0.2 available)
+2026-07-24T00:57:49.4684750Z   pointycastle 3.9.1 (4.0.0 available)
+2026-07-24T00:57:49.4684960Z   pubspec_parse 1.4.0 (1.5.0 available)
+2026-07-24T00:57:49.4685530Z   riverpod 2.6.1 (3.3.2 available)
+2026-07-24T00:57:49.4685870Z   riverpod_analyzer_utils 0.5.8 (0.5.10 available)
+2026-07-24T00:57:49.4686190Z   riverpod_annotation 2.6.1 (4.0.3 available)
+2026-07-24T00:57:49.4686410Z   riverpod_generator 2.6.3 (4.0.4 available)
+2026-07-24T00:57:49.4686630Z   share_plus 7.2.2 (13.3.0 available)
+2026-07-24T00:57:49.4686870Z   share_plus_platform_interface 3.4.0 (7.2.0 available)
+2026-07-24T00:57:49.4687130Z   shared_preferences 2.5.3 (2.5.5 available)
+2026-07-24T00:57:49.4687380Z   shared_preferences_android 2.4.7 (2.4.27 available)
+2026-07-24T00:57:49.4687640Z   shared_preferences_foundation 2.5.4 (2.5.6 available)
+2026-07-24T00:57:49.4687940Z   shared_preferences_platform_interface 2.4.1 (2.4.2 available)
+2026-07-24T00:57:49.4688270Z   shelf 1.4.1 (1.4.2 available)
+2026-07-24T00:57:49.4688580Z   shelf_web_socket 2.0.1 (3.0.0 available)
+2026-07-24T00:57:49.4688880Z   source_gen 1.5.0 (4.2.4 available)
+2026-07-24T00:57:49.4689150Z   source_helper 1.3.5 (1.3.12 available)
+2026-07-24T00:57:49.4689370Z   source_span 1.10.0 (1.10.2 available)
+2026-07-24T00:57:49.4689660Z   sqflite 2.4.1 (2.4.3 available)
+2026-07-24T00:57:49.4689870Z   sqflite_android 2.4.0 (2.4.3 available)
+2026-07-24T00:57:49.4690200Z   sqflite_common 2.5.4+6 (2.5.11 available)
+2026-07-24T00:57:49.4690470Z   sqflite_darwin 2.4.1+1 (2.4.3+1 available)
+2026-07-24T00:57:49.4690830Z   sqflite_platform_interface 2.4.0 (2.4.1 available)
+2026-07-24T00:57:49.4691070Z   sqlite3 2.4.5 (3.5.0 available)
+2026-07-24T00:57:49.4691330Z   sqlite3_flutter_libs 0.5.42 (0.6.0+eol available)
+2026-07-24T00:57:49.4691560Z   sqlparser 0.37.1 (0.45.0 available)
+2026-07-24T00:57:49.4691850Z   stack_trace 1.11.1 (1.12.1 available)
+2026-07-24T00:57:49.4692140Z   stream_channel 2.1.2 (2.1.4 available)
+2026-07-24T00:57:49.4692520Z   string_scanner 1.2.0 (1.4.1 available)
+2026-07-24T00:57:49.4692800Z   synchronized 3.3.0+3 (3.4.1+1 available)
+2026-07-24T00:57:49.4693100Z   term_glyph 1.2.1 (1.2.2 available)
+2026-07-24T00:57:49.4693340Z   test_api 0.7.2 (0.7.13 available)
+2026-07-24T00:57:49.4693620Z   timezone 0.9.4 (0.11.1 available)
+2026-07-24T00:57:49.4693860Z   url_launcher 6.3.1 (6.3.2 available)
+2026-07-24T00:57:49.4694180Z   url_launcher_android 6.3.14 (6.3.32 available)
+2026-07-24T00:57:49.4694460Z   url_launcher_ios 6.3.3 (6.4.1 available)
+2026-07-24T00:57:49.4694760Z   url_launcher_linux 3.2.1 (3.2.2 available)
+2026-07-24T00:57:49.4695030Z   url_launcher_macos 3.2.2 (3.2.5 available)
+2026-07-24T00:57:49.4695330Z   url_launcher_web 2.3.3 (2.4.3 available)
+2026-07-24T00:57:49.4695590Z   url_launcher_windows 3.1.4 (3.1.5 available)
+2026-07-24T00:57:49.4695990Z   vector_graphics 1.1.18 (1.2.2 available)
+2026-07-24T00:57:49.4696310Z   vector_graphics_compiler 1.1.16 (1.2.6 available)
+2026-07-24T00:57:49.4696690Z   vector_math 2.1.4 (2.4.1 available)
+2026-07-24T00:57:49.4696960Z   video_player 2.9.5 (2.13.0 available)
+2026-07-24T00:57:49.4697300Z   video_player_android 2.7.16 (2.12.0 available)
+2026-07-24T00:57:49.4697600Z   video_player_avfoundation 2.7.1 (2.11.0 available)
+2026-07-24T00:57:49.4698020Z   video_player_platform_interface 6.3.0 (6.9.0 available)
+2026-07-24T00:57:49.4698330Z   video_player_web 2.3.5 (2.4.0 available)
+2026-07-24T00:57:49.4698630Z   vm_service 14.2.5 (15.2.0 available)
+2026-07-24T00:57:49.4698890Z   web 0.5.1 (1.1.1 available)
+2026-07-24T00:57:49.4699190Z   web_socket_channel 2.4.5 (3.0.3 available)
+2026-07-24T00:57:49.4699840Z   win32 5.10.1 (6.3.0 available)
+2026-07-24T00:57:49.4700100Z   win32_registry 1.1.5 (3.0.3 available)
+2026-07-24T00:57:49.4700410Z   xml 6.5.0 (7.0.1 available)
+2026-07-24T00:57:49.4700590Z Got dependencies!
+2026-07-24T00:57:49.4700820Z 1 package is discontinued.
+2026-07-24T00:57:49.4701150Z 166 packages have newer versions incompatible with dependency constraints.
+2026-07-24T00:57:49.4701590Z Try `flutter pub outdated` for more information.
+2026-07-24T00:57:50.1114980Z === Final package name ===
+2026-07-24T00:57:50.1143810Z name: xiaosu
+2026-07-24T00:57:50.1149920Z description: 小酥 - 全功能 AI 助手
+2026-07-24T00:57:50.1151820Z publish_to: 'none'
+2026-07-24T00:57:50.1152150Z === iOS directory ===
+2026-07-24T00:57:50.1204760Z Flutter
+2026-07-24T00:57:50.1208850Z Podfile
+2026-07-24T00:57:50.1209410Z Runner
+2026-07-24T00:57:50.1210100Z Runner.xcodeproj
+2026-07-24T00:57:50.1211030Z Runner.xcworkspace
+2026-07-24T00:57:50.1212080Z RunnerTests
+2026-07-24T00:57:50.1212880Z === Flutter dir ===
+2026-07-24T00:57:50.1233640Z AppFrameworkInfo.plist
+2026-07-24T00:57:50.1234180Z Debug.xcconfig
+2026-07-24T00:57:50.1235040Z flutter_export_environment.sh
+2026-07-24T00:57:50.1235560Z Flutter.xcframework
+2026-07-24T00:57:50.1235900Z Generated.xcconfig
+2026-07-24T00:57:50.1236530Z Release.xcconfig

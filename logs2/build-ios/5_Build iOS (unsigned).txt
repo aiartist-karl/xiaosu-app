@@ -1,0 +1,35 @@
+﻿2026-07-24T00:17:26.0128120Z ##[group]Run flutter build ios --release --no-codesign
+2026-07-24T00:17:26.0128460Z [36;1mflutter build ios --release --no-codesign[0m
+2026-07-24T00:17:26.0159430Z shell: /bin/bash -e {0}
+2026-07-24T00:17:26.0159600Z env:
+2026-07-24T00:17:26.0159860Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.24.5-arm64/flutter
+2026-07-24T00:17:26.0160190Z   PUB_CACHE: /Users/runner/.pub-cache
+2026-07-24T00:17:26.0160380Z ##[endgroup]
+2026-07-24T00:17:26.7563370Z Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+2026-07-24T00:17:39.7872010Z Building com.xiaosu.app for device (ios-release)...
+2026-07-24T00:17:39.8651910Z Upgrading Info.plist
+2026-07-24T00:17:44.1434390Z Running pod install...                                             824ms
+2026-07-24T00:17:44.1503930Z CocoaPods' output:
+2026-07-24T00:17:44.1507150Z ↳
+2026-07-24T00:17:44.1507890Z       Preparing
+2026-07-24T00:17:44.1627540Z Error running pod install
+2026-07-24T00:17:44.1629850Z 
+2026-07-24T00:17:44.1747790Z     Analyzing dependencies
+2026-07-24T00:17:44.1998040Z     [!] The target `Runner` is declared multiple times.
+2026-07-24T00:17:44.2107500Z 
+2026-07-24T00:17:44.2240040Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/installer/analyzer.rb:228:in 'Pod::Installer::Analyzer#validate_podfile!'
+2026-07-24T00:17:44.2343930Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/installer/analyzer.rb:104:in 'Pod::Installer::Analyzer#analyze'
+2026-07-24T00:17:44.2448790Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/installer.rb:422:in 'Pod::Installer#analyze'
+2026-07-24T00:17:44.2561160Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/installer.rb:244:in 'block in Pod::Installer#resolve_dependencies'
+2026-07-24T00:17:44.2664090Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/user_interface.rb:64:in 'Pod::UserInterface.section'
+2026-07-24T00:17:44.2766370Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/installer.rb:243:in 'Pod::Installer#resolve_dependencies'
+2026-07-24T00:17:44.2869620Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/installer.rb:162:in 'Pod::Installer#install!'
+2026-07-24T00:17:44.2973550Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/command/install.rb:52:in 'Pod::Command::Install#run'
+2026-07-24T00:17:44.3079450Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/claide-1.1.0/lib/claide/command.rb:334:in 'CLAide::Command.run'
+2026-07-24T00:17:44.3184870Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/lib/cocoapods/command.rb:52:in 'Pod::Command.run'
+2026-07-24T00:17:44.3287490Z     /opt/homebrew/lib/ruby/gems/3.4.0/gems/cocoapods-1.17.0/bin/pod:55:in '<top (required)>'
+2026-07-24T00:17:44.3318970Z     /opt/homebrew/lib/ruby/site_ruby/3.4.0/rubygems.rb:305:in 'Kernel#load'
+2026-07-24T00:17:44.3345450Z     /opt/homebrew/lib/ruby/site_ruby/3.4.0/rubygems.rb:305:in 'Gem.activate_and_load_bin_path'
+2026-07-24T00:17:44.3401880Z     /opt/homebrew/lib/ruby/gems/3.4.0/bin/pod:25:in '<main>'
+2026-07-24T00:17:44.3402390Z 
+2026-07-24T00:17:44.3426860Z ##[error]Process completed with exit code 1.

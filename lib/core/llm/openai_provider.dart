@@ -1,397 +1,155 @@
-/// ============================================================================
-/// 小酥 AI 助手 — OpenAI Provider 实现
-/// ============================================================================
-/// 基于 OpenAI API 的 LLM Provider 实现，支持：
-///   - GPT-4o / GPT-4o-mini 等模型
-///   - 流式输出 (SSE)
-///   - Function Calling
-///   - Token 用量统计
-/// 使用 Dio 作为 HTTP 客户端
-/// ============================================================================
+// ============================================================================
+// 小酥 - OpenAI Provider
+// ============================================================================
 
 import 'dart:async';
 import 'dart:convert';
-
-import '../common/models.dart';
+import 'package:http/http.dart' as http;
 import 'llm_provider.dart';
 
-// TODO: 实际项目中需要导入 dio 包
-// import 'package:dio/dio.dart';
+/// OpenAI兼容API Provider
+class OpenAIProvider extends BaseLlmProvider {
+  final String _apiKey;
+  final String _baseUrl;
+  final String _model;
+  final http.Client _client = http.Client();
 
-/// OpenAI API Provider
-///
-/// 封装 OpenAI Chat Completions API 的调用细节，
-/// 统一实现 [LlmProvider] 接口，供上层 Agent 使用。
-///
-/// 支持模型：
-///   - gpt-4o          (128K context)
-///   - gpt-4o-mini     (128K context)
-///   - gpt-4-turbo     (128K context)
-///   - gpt-3.5-turbo   (16K context)
-class OpenAiProvider extends LlmProvider {
-  // ———————— 配置字段 ————————
-
-  @override
-  final String providerId = 'openai';
+  OpenAIProvider({
+    required String apiKey,
+    String baseUrl = 'https://api.openai.com/v1',
+    String model = 'gpt-3.5-turbo',
+  })  : _apiKey = apiKey,
+        _baseUrl = baseUrl,
+        _model = model;
 
   @override
-  final String modelId;
+  String get providerId => 'openai';
 
   @override
-  final int maxContextTokens;
+  String get modelId => _model;
 
   @override
-  bool get supportsFunctionCalling => true;
-
-  @override
-  bool get supportsStreaming => true;
-
-  /// API Base URL（默认 OpenAI 官方地址，可替换为兼容的第三方地址）
-  final String baseUrl;
-
-  /// API Key
-  final String apiKey;
-
-  /// 组织 ID（可选）
-  final String? organizationId;
-
-  /// 请求超时时间（毫秒）
-  final int timeoutMs;
-
-  // TODO: 实际项目中应为 Dio 实例
-  // final Dio _dio;
-
-  /// 预设模型配置表
-  static const Map<String, int> _modelContextLimits = {
-    'gpt-4o': 128000,
-    'gpt-4o-mini': 128000,
-    'gpt-4-turbo': 128000,
-    'gpt-4': 8192,
-    'gpt-3.5-turbo': 16385,
-  };
-
-  OpenAiProvider({
-    required this.apiKey,
-    this.modelId = 'gpt-4o-mini',
-    this.baseUrl = 'https://api.openai.com/v1',
-    this.organizationId,
-    this.timeoutMs = 60000,
-    int? maxContextTokens,
-  }) : maxContextTokens = maxContextTokens ??
-            _modelContextLimits[modelId] ??
-            128000;
-
-  @override
-  bool get isAvailable => apiKey.isNotEmpty;
-
-  // ———————————————————————————————— 请求构建 ————————————————————————————————
-
-  /// 构建请求头
-  Map<String, String> _buildHeaders() {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $apiKey',
-    };
-    if (organizationId != null) {
-      headers['OpenAI-Organization'] = organizationId!;
-    }
-    return headers;
-  }
-
-  /// 构建请求体
-  ///
-  /// [messages] 对话消息列表
-  /// [tools] 工具声明列表
-  /// [temperature] 温度参数
-  /// [maxTokens] 最大输出 token
-  /// [stop] 停止词
-  /// [stream] 是否流式
-  Map<String, dynamic> _buildRequestBody({
-    required List<LlmMessage> messages,
-    List<ToolDeclaration>? tools,
+  Future<LLMCompletionResult> complete({
+    required List<Map<String, dynamic>> messages,
     double temperature = 0.7,
-    int? maxTokens,
-    List<String>? stop,
-    bool stream = false,
-  }) {
-    final body = <String, dynamic>{
-      'model': modelId,
-      'messages': messages.map((m) => m.toMap()).toList(),
+    int maxTokens = 2048,
+    String? systemPrompt,
+    Map<String, dynamic>? extraParams,
+  }) async {
+    final allMessages = <Map<String, dynamic>>[];
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      allMessages.add({'role': 'system', 'content': systemPrompt});
+    }
+    allMessages.addAll(messages);
+
+    final body = {
+      'model': _model,
+      'messages': allMessages,
       'temperature': temperature,
-      'stream': stream,
+      'max_tokens': maxTokens,
+      'stream': false,
+      ...?extraParams,
     };
 
-    // 流式模式下请求增量输出
-    if (stream) {
-      body['stream_options'] = {'include_usage': true};
+    final startTime = DateTime.now();
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+      },
+      body: jsonEncode(body),
+    );
+
+    final latency = DateTime.now().difference(startTime).inMilliseconds.toDouble();
+
+    if (response.statusCode != 200) {
+      throw Exception('OpenAI请求失败: ${response.statusCode} ${response.body}');
     }
 
-    // 工具声明
-    if (tools != null && tools.isNotEmpty) {
-      body['tools'] = tools.map((t) => t.toJson()).toList();
-      body['tool_choice'] = 'auto';
-    }
+    final data = jsonDecode(response.body);
+    final choice = (data['choices'] as List).first;
+    final usage = data['usage'] as Map<String, dynamic>?;
 
-    // 最大输出 token
-    if (maxTokens != null) {
-      body['max_tokens'] = maxTokens;
-    }
-
-    // 停止词
-    if (stop != null && stop.isNotEmpty) {
-      body['stop'] = stop;
-    }
-
-    return body;
+    return LLMCompletionResult(
+      content: choice['message']['content'] as String,
+      model: data['model'] as String? ?? _model,
+      promptTokens: usage?['prompt_tokens'] as int? ?? 0,
+      completionTokens: usage?['completion_tokens'] as int? ?? 0,
+      totalTokens: usage?['total_tokens'] as int? ?? 0,
+      latencyMs: latency,
+    );
   }
-
-  // ———————————————————————————————— 非流式调用 ————————————————————————————————
 
   @override
-  Future<ChatResponse> chat({
-    required List<LlmMessage> messages,
-    List<ToolDeclaration>? tools,
+  Stream<LLMStreamChunk> completeStream({
+    required List<Map<String, dynamic>> messages,
     double temperature = 0.7,
-    int? maxTokens,
-    List<String>? stop,
-  }) async {
-    final body = _buildRequestBody(
-      messages: messages,
-      tools: tools,
-      temperature: temperature,
-      maxTokens: maxTokens,
-      stop: stop,
-      stream: false,
-    );
-
-    try {
-      // TODO: 实际项目中使用 Dio 发送请求
-      // final response = await _dio.post(
-      //   '$baseUrl/chat/completions',
-      //   options: Options(headers: _buildHeaders()),
-      //   data: body,
-      // );
-      // return _parseChatResponse(response.data);
-
-      // 占位：抛出未实现异常
-      throw LlmException(
-        'OpenAI API 调用尚未实际连接，需要配置 Dio 客户端',
-        modelId,
-      );
-    } on LlmException {
-      rethrow;
-    } catch (e) {
-      throw LlmException(
-        'OpenAI API 调用失败: ${e.toString()}',
-        modelId,
-        e,
-      );
+    int maxTokens = 2048,
+    String? systemPrompt,
+    Map<String, dynamic>? extraParams,
+  }) async* {
+    final allMessages = <Map<String, dynamic>>[];
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      allMessages.add({'role': 'system', 'content': systemPrompt});
     }
-  }
+    allMessages.addAll(messages);
 
-  /// 解析非流式响应 JSON
-  ChatResponse _parseChatResponse(Map<String, dynamic> json) {
-    final choices = json['choices'] as List;
-    if (choices.isEmpty) {
-      throw LlmException('OpenAI 返回空 choices', modelId);
-    }
+    final body = {
+      'model': _model,
+      'messages': allMessages,
+      'temperature': temperature,
+      'max_tokens': maxTokens,
+      'stream': true,
+      ...?extraParams,
+    };
 
-    final choice = choices[0] as Map<String, dynamic>;
-    final message = choice['message'] as Map<String, dynamic>;
+    final request = http.Request('POST', Uri.parse('$_baseUrl/chat/completions'));
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $_apiKey',
+    });
+    request.body = jsonEncode(body);
 
-    // 解析文本内容
-    final content = message['content'] as String? ?? '';
+    final streamedResponse = await _client.send(request);
+    final controller = StreamController<LLMStreamChunk>();
 
-    // 解析工具调用
-    final toolCallsRaw = message['tool_calls'] as List?;
-    final toolCalls = <FunctionCall>[];
-    if (toolCallsRaw != null) {
-      for (final tc in toolCallsRaw) {
-        final tcMap = tc as Map<String, dynamic>;
-        toolCalls.add(FunctionCall(
-          id: tcMap['id'] as String,
-          name: (tcMap['function'] as Map<String, dynamic>)['name'] as String,
-          arguments:
-              (tcMap['function'] as Map<String, dynamic>)['arguments'] as String,
-        ));
-      }
-    }
-
-    // 解析 token 用量
-    final usage = json['usage'] as Map<String, dynamic>?;
-
-    return ChatResponse(
-      message: AssistantMessage(
-        content: content,
-        toolCalls: toolCalls,
-        finishReason: choice['finish_reason'] as String?,
-      ),
-      usage: usage != null
-          ? TokenUsage(
-              promptTokens: usage['prompt_tokens'] as int,
-              completionTokens: usage['completion_tokens'] as int,
-              totalTokens: usage['total_tokens'] as int,
-            )
-          : const TokenUsage.empty(),
-      rawData: json,
-    );
-  }
-
-  // ———————————————————————————————— 流式调用 ————————————————————————————————
-
-  @override
-  Stream<ChatChunk> streamChat({
-    required List<LlmMessage> messages,
-    List<ToolDeclaration>? tools,
-    double temperature = 0.7,
-    int? maxTokens,
-    List<String>? stop,
-  }) {
-    final controller = StreamController<ChatChunk>();
-
-    _startStreamRequest(
-      controller: controller,
-      messages: messages,
-      tools: tools,
-      temperature: temperature,
-      maxTokens: maxTokens,
-      stop: stop,
-    );
-
-    return controller.stream;
-  }
-
-  /// 发起 SSE 流式请求
-  ///
-  /// 使用 Dio 的 ResponseType.stream 或 HttpClient 建立 SSE 连接，
-  /// 逐行解析 "data: {...}" 格式的事件数据。
-  Future<void> _startStreamRequest({
-    required StreamController<ChatChunk> controller,
-    required List<LlmMessage> messages,
-    List<ToolDeclaration>? tools,
-    double temperature = 0.7,
-    int? maxTokens,
-    List<String>? stop,
-  }) async {
-    try {
-      // TODO: 实际项目中使用 Dio 或 HttpClient 建立 SSE 连接
-      // 示例伪代码：
-      //
-      // final response = await _dio.post(
-      //   '$baseUrl/chat/completions',
-      //   options: Options(
-      //     headers: _buildHeaders(),
-      //     responseType: ResponseType.stream,
-      //   ),
-      //   data: _buildRequestBody(
-      //     messages: messages,
-      //     tools: tools,
-      //     temperature: temperature,
-      //     maxTokens: maxTokens,
-      //     stop: stop,
-      //     stream: true,
-      //   ),
-      // );
-      //
-      // final stream = (response.data as ResponseBody).stream;
-      // final buffer = StringBuffer();
-      //
-      // await for (final chunk in stream.transform(utf8.decoder)) {
-      //   buffer.write(chunk);
-      //   final lines = buffer.toString().split('\n');
-      //   buffer.clear();
-      //   buffer.write(lines.last); // 保留不完整的行
-      //
-      //   for (final line in lines.sublist(0, lines.length - 1)) {
-      //     final trimmed = line.trim();
-      //     if (trimmed.isEmpty || trimmed == 'data: [DONE]') continue;
-      //     if (!trimmed.startsWith('data: ')) continue;
-      //
-      //     final jsonStr = trimmed.substring(6);
-      //     final event = _parseSSEChunk(jsonDecode(jsonStr));
-      //     controller.add(event);
-      //
-      //     if (event.isDone) {
-      //       await controller.close();
-      //       return;
-      //     }
-      //   }
-      // }
-
-      // 占位：发送一个模拟事件后关闭
-      controller.add(ChatChunk(
-        deltaContent: '[OpenAI 流式调用尚未实际连接]',
-        finishReason: 'stop',
-      ));
-      await controller.close();
-    } catch (e) {
-      controller.addError(LlmException(
-        'OpenAI 流式调用失败: ${e.toString()}',
-        modelId,
-        e,
-      ));
-      await controller.close();
-    }
-  }
-
-  /// 解析 SSE 流中的单个数据块
-  ///
-  /// OpenAI SSE 格式：
-  /// ```json
-  /// {
-  ///   "id": "chatcmpl-xxx",
-  ///   "choices": [{
-  ///     "delta": { "content": "Hello" },
-  ///     "finish_reason": null
-  ///   }]
-  /// }
-  /// ```
-  ChatChunk _parseSSEChunk(Map<String, dynamic> json) {
-    final choices = json['choices'] as List?;
-    if (choices == null || choices.isEmpty) {
-      return const ChatChunk();
-    }
-
-    final choice = choices[0] as Map<String, dynamic>;
-    final delta = choice['delta'] as Map<String, dynamic>? ?? {};
-    final finishReason = choice['finish_reason'] as String?;
-
-    // 解析增量内容
-    final content = delta['content'] as String? ?? '';
-
-    // 解析增量工具调用
-    final toolCallsRaw = delta['tool_calls'] as List?;
-    final toolCalls = <FunctionCall>[];
-    if (toolCallsRaw != null) {
-      for (final tc in toolCallsRaw) {
-        final tcMap = tc as Map<String, dynamic>;
-        final func = tcMap['function'] as Map<String, dynamic>?;
-        if (func != null) {
-          toolCalls.add(FunctionCall(
-            id: tcMap['id'] as String? ?? '',
-            name: func['name'] as String? ?? '',
-            arguments: func['arguments'] as String? ?? '',
-          ));
+    streamedResponse.stream.transform(utf8.decoder).listen(
+      (data) {
+        final lines = data.split('\n');
+        for (final line in lines) {
+          if (line.startsWith('data: ')) {
+            final jsonStr = line.substring(6).trim();
+            if (jsonStr == '[DONE]') {
+              controller.add(const LLMStreamChunk(content: '', isDone: true));
+              continue;
+            }
+            try {
+              final chunk = jsonDecode(jsonStr);
+              final choices = chunk['choices'] as List?;
+              if (choices != null && choices.isNotEmpty) {
+                final delta = choices.first['delta'];
+                final content = delta?['content'] as String? ?? '';
+                final finishReason = choices.first['finish_reason'] as String?;
+                controller.add(LLMStreamChunk(
+                  content: content,
+                  isDone: finishReason != null,
+                  finishReason: finishReason,
+                ));
+              }
+            } catch (_) {}
+          }
         }
-      }
-    }
-
-    return ChatChunk(
-      deltaContent: content,
-      deltaToolCalls: toolCalls,
-      finishReason: finishReason,
-      rawData: json,
+      },
+      onError: (error) => controller.addError(error),
+      onDone: () => controller.close(),
     );
-  }
 
-  // ———————————————————————————————— 生命周期 ————————————————————————————————
+    yield* controller.stream;
+  }
 
   @override
   Future<void> dispose() async {
-    // TODO: 释放 Dio 客户端
-    // _dio.close();
+    _client.close();
   }
-
-  @override
-  String toString() => 'OpenAiProvider(model=$modelId)';
 }
