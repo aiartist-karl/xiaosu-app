@@ -1,5 +1,5 @@
 // ============================================================================
-// 小酥 - LLM Provider 基础接口 + DeepSeek直连集成
+// 小酥 - LLM Provider 基础接口 + Agent Provider + DeepSeek直连
 // ============================================================================
 
 import 'dart:async';
@@ -48,13 +48,9 @@ typedef LlmProvider = BaseLlmProvider;
 
 /// LLM Provider 基础接口
 abstract class BaseLlmProvider {
-  /// Provider唯一标识
   String get providerId;
-
-  /// 模型名称
   String get modelId;
 
-  /// 发送普通请求
   Future<LLMCompletionResult> complete({
     required List<Map<String, dynamic>> messages,
     double temperature = 0.7,
@@ -63,7 +59,6 @@ abstract class BaseLlmProvider {
     Map<String, dynamic>? extraParams,
   });
 
-  /// 发送流式请求
   Stream<LLMStreamChunk> completeStream({
     required List<Map<String, dynamic>> messages,
     double temperature = 0.7,
@@ -72,11 +67,10 @@ abstract class BaseLlmProvider {
     Map<String, dynamic>? extraParams,
   });
 
-  /// 关闭连接
   Future<void> dispose() async {}
 }
 
-/// DeepSeek Provider（直连）
+/// DeepSeek Provider（直连，保留兼容）
 class AliyunDeepSeekProvider extends BaseLlmProvider {
   static final AliyunDeepSeekProvider instance = AliyunDeepSeekProvider._();
   AliyunDeepSeekProvider._();
@@ -90,7 +84,6 @@ class AliyunDeepSeekProvider extends BaseLlmProvider {
   String get modelId => AppConfig.llmModel;
 
   String get _endpoint => AppConfig.llmEndpoint;
-
   String get _apiKey => AppConfig.llmApiKey;
 
   @override
@@ -182,7 +175,6 @@ class AliyunDeepSeekProvider extends BaseLlmProvider {
 
     response.stream.transform(utf8.decoder).listen(
       (data) {
-        // 解析SSE格式
         final lines = data.split('\n');
         for (final line in lines) {
           if (line.startsWith('data: ')) {
@@ -204,9 +196,7 @@ class AliyunDeepSeekProvider extends BaseLlmProvider {
                   finishReason: finishReason,
                 ));
               }
-            } catch (_) {
-              // 忽略解析错误
-            }
+            } catch (_) {}
           }
         }
       },

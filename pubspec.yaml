@@ -1,7 +1,7 @@
 name: xiaosu
-description: 小酥 - 全功能AI助手
+description: 小酥 - 全功能AI助手（Agent模式）
 publish_to: 'no'
-version: 2.1.0+21
+version: 2.2.0+22
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -23,6 +23,9 @@ dependencies:
   go_router: ^13.2.0
   equatable: ^2.0.5
   path_provider: ^2.1.1
+  
+  # 网络
+  web_socket_channel: ^2.4.0
   
   # UI
   flutter_markdown: ^0.6.18
