@@ -1,7 +1,7 @@
 name: xiaosu
 description: 小酥 - 全功能AI助手
 publish_to: 'no'
-version: 2.1.0+21
+version: 2.2.0+22
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -31,6 +31,10 @@ dependencies:
   
   # 工具
   uuid: ^4.2.1
+  flutter_secure_storage: ^9.0.0
+  connectivity_plus: ^6.0.0
+  encrypt: ^5.0.3
+  crypto: ^3.0.3
   intl: ^0.20.2
 
 dev_dependencies:

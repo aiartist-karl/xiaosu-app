@@ -1,0 +1,58 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Prepare iOS project
+        run: |
+          # Remove existing iOS directory and regenerate with correct package name
+          rm -rf ios/
+          flutter create --platforms=ios --project-name=xiaosu --org=com.xiaosu .
+          flutter pub get
+
+      - name: Build iOS (unsigned)
+        run: |
+          flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r xiaosu-ios-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: xiaosu-ios-unsigned
+          path: xiaosu-ios-unsigned.ipa
+          retention-days: 30
+
+      - name: Upload build logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-build-logs
+          path: |
+            build/
+            ios/
+          retention-days: 7

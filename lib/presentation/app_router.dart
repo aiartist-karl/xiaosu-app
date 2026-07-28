@@ -2,23 +2,22 @@
 // 小酥 - 应用路由管理
 // ============================================================================
 
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../ui/pages/home_page.dart';
-import '../ui/pages/chat_page.dart';
-import '../ui/pages/settings_page.dart';
-import '../ui/pages/skills_page.dart';
-import '../ui/pages/tasks_page.dart';
-import '../ui/pages/error_page.dart';
-import 'chat/chat_screen.dart';
-import 'settings/settings_screen.dart';
-import 'settings/model_settings_screen.dart';
-import 'settings/skill_manager_screen.dart';
-import 'chat/session_list_screen.dart';
-import 'workflow_editor/workflow_editor_screen.dart';
-import 'dashboard/dashboard_screen.dart';
-import 'plugin_store/plugin_store_screen.dart';
-import 'monitor/monitor_dashboard.dart';
+import 'package:xiaosu/ui/pages/home_page.dart';
+import 'package:xiaosu/ui/pages/chat_page.dart';
+import 'package:xiaosu/ui/pages/settings_page.dart';
+import 'package:xiaosu/ui/pages/skills_page.dart';
+import 'package:xiaosu/ui/pages/tasks_page.dart';
+import 'package:xiaosu/ui/pages/error_page.dart';
+import 'package:xiaosu/presentation/chat/chat_screen.dart';
+import 'package:xiaosu/presentation/settings/settings_screen.dart';
+import 'package:xiaosu/presentation/settings/model_settings_screen.dart';
+import 'package:xiaosu/presentation/settings/skill_manager_screen.dart';
+import 'package:xiaosu/presentation/chat/session_list_screen.dart';
+import 'package:xiaosu/presentation/workflow_editor/workflow_editor_screen.dart';
+import 'package:xiaosu/presentation/dashboard/dashboard_screen.dart';
+import 'package:xiaosu/presentation/plugin_store/plugin_store_screen.dart';
+import 'package:xiaosu/presentation/monitor/monitor_dashboard.dart';
 
 /// 应用路由管理
 class AppRouter {

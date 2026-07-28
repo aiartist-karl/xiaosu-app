@@ -1,19 +1,28 @@
 // ============================================================================
-// 小酥 - 聊天界面
+// 小酥 v2 - 聊天界面（动态状态栏 + 工具调用卡片 + 后台任务指示器）
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/chat_engine.dart';
 import '../../models/chat_message.dart';
+import '../theme/app_colors.dart';
 import 'widgets/chat_input.dart';
 import 'widgets/message_bubble.dart';
-import 'widgets/thinking_indicator.dart';
+import 'widgets/dynamic_status_bar.dart';
+import 'widgets/tool_call_card.dart';
+import 'widgets/background_task_indicator.dart';
 
-/// 聊天界面（完整版）
+/// 聊天界面
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
-  const ChatScreen({super.key, required this.conversationId});
+  final String? botName;
+
+  const ChatScreen({
+    super.key,
+    required this.conversationId,
+    this.botName,
+  });
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -22,8 +31,17 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final ChatEngine _engine = ChatEngine.instance;
   final List<ChatMessage> _messages = [];
+  final List<BackgroundTask> _backgroundTasks = [];
   final ScrollController _scrollController = ScrollController();
+
+  StatusBarState _statusBarState = StatusBarState.idle;
   bool _isLoading = false;
+  bool _isStreaming = false;
+  String _selectedModel = 'Auto';
+  String? _currentTaskName;
+
+  // 每个消息关联的工具调用
+  final Map<String, List<ToolCallInfo>> _messageToolCalls = {};
 
   @override
   void initState() {
@@ -52,9 +70,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
-    setState(() => _isLoading = true);
 
-    // 添加用户消息到本地
+    setState(() {
+      _isLoading = true;
+      _isStreaming = false;
+      _statusBarState = StatusBarState.connecting;
+    });
+
+    // 添加用户消息
     final userMsg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       conversationId: widget.conversationId,
@@ -62,13 +85,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       role: MessageRole.user,
       timestamp: DateTime.now(),
     );
-    setState(() {
-      _messages.add(userMsg);
-    });
+    setState(() => _messages.add(userMsg));
     _scrollToBottom();
 
     try {
-      // 使用流式响应
+      // 创建助手消息占位
       final assistantMsg = ChatMessage(
         id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
         conversationId: widget.conversationId,
@@ -79,6 +100,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
       setState(() {
         _messages.add(assistantMsg);
+        _isStreaming = true;
+        _statusBarState = StatusBarState.typing;
       });
       _scrollToBottom();
 
@@ -87,14 +110,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         content: text,
       )) {
         if (msg.role == MessageRole.user) continue;
+
         setState(() {
-          // 更新最后一条助手消息
-          if (_messages.isNotEmpty && _messages.last.role == MessageRole.assistant) {
+          if (_messages.isNotEmpty &&
+              _messages.last.role == MessageRole.assistant) {
             _messages[_messages.length - 1] = msg;
           }
         });
         _scrollToBottom();
       }
+
+      // 完成
+      setState(() {
+        _isStreaming = false;
+        _statusBarState = StatusBarState.idle;
+      });
     } catch (e) {
       setState(() {
         _messages.add(ChatMessage(
@@ -105,6 +135,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           timestamp: DateTime.now(),
           status: MessageStatus.error,
         ));
+        _isStreaming = false;
+        _statusBarState = StatusBarState.idle;
       });
     } finally {
       setState(() => _isLoading = false);
@@ -112,13 +144,77 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  void _showModelSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final models = ['Auto', 'DeepSeek', 'Qwen', 'GPT-4o'];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '选择模型',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary(isDark),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...models.map((m) => ListTile(
+                    leading: Icon(
+                      _selectedModel == m ? Icons.radio_button_checked : Icons.radio_button_off,
+                      color: _selectedModel == m
+                          ? AppColors.primary(isDark)
+                          : AppColors.textSecondary(isDark),
+                    ),
+                    title: Text(
+                      m,
+                      style: TextStyle(
+                        color: _selectedModel == m
+                            ? AppColors.primary(isDark)
+                            : AppColors.textPrimary(isDark),
+                        fontWeight: _selectedModel == m ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                    onTap: () {
+                      setState(() => _selectedModel = m);
+                      Navigator.pop(ctx);
+                    },
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('小酥'),
+        title: Text(widget.botName ?? '小酥'),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
+          // 后台任务指示器
+          BackgroundTaskIndicator(tasks: _backgroundTasks),
+          const SizedBox(width: 8),
+          // 更多菜单
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () => _showMenu(context),
@@ -127,51 +223,90 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
-          // 消息列表
+          // ─── 消息列表 ───
           Expanded(
             child: _messages.isEmpty
                 ? _buildWelcome()
                 : ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: _messages.length + (_isLoading ? 1 : 0),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: _messages.length,
                     itemBuilder: (context, index) {
-                      if (index < _messages.length) {
-                        return MessageBubble(message: _messages[index]);
-                      }
-                      return const ThinkingIndicator();
+                      final msg = _messages[index];
+                      return MessageBubble(
+                        message: msg,
+                        toolCalls: _messageToolCalls[msg.id],
+                      );
                     },
                   ),
           ),
-          // 输入框
-          ChatInput(onSend: _sendMessage, isLoading: _isLoading),
+          // ─── 动态状态栏 ───
+          DynamicStatusBar(
+            state: _statusBarState,
+            taskName: _currentTaskName,
+          ),
+          // ─── 输入栏 ───
+          ChatInput(
+            onSend: _sendMessage,
+            onModelSelect: _showModelSelector,
+            onStop: () {
+              // TODO: 停止生成
+              setState(() {
+                _isStreaming = false;
+                _statusBarState = StatusBarState.idle;
+              });
+            },
+            isLoading: _isLoading,
+            isStreaming: _isStreaming,
+            selectedModel: _selectedModel,
+          ),
         ],
       ),
     );
   }
 
   Widget _buildWelcome() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('🧠', style: TextStyle(fontSize: 64)),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.primary(isDark).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(child: Text('🧠', style: TextStyle(fontSize: 36))),
+          ),
           const SizedBox(height: 16),
-          Text('你好，我是小酥！', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            '你好，我是小酥！',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary(isDark),
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             '有什么可以帮你的吗？',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            style: TextStyle(
+              color: AppColors.textSecondary(isDark),
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 24),
           Wrap(
             spacing: 8,
             runSpacing: 8,
+            alignment: WrapAlignment.center,
             children: [
-              _suggestionChip('🎨 生成一张图片'),
-              _suggestionChip('🔍 帮我搜索'),
-              _suggestionChip('📧 发送一封邮件'),
-              _suggestionChip('💡 给我个建议'),
+              _suggestionChip('🎨 生成一张图片', isDark),
+              _suggestionChip('🔍 帮我搜索', isDark),
+              _suggestionChip('📧 发送一封邮件', isDark),
+              _suggestionChip('💡 给我个建议', isDark),
             ],
           ),
         ],
@@ -179,9 +314,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _suggestionChip(String label) {
+  Widget _suggestionChip(String label, bool isDark) {
     return ActionChip(
-      label: Text(label),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      backgroundColor: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
       onPressed: () => _sendMessage(label.substring(2).trim()),
     );
   }
@@ -205,6 +345,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ListTile(
               leading: const Icon(Icons.content_copy),
               title: const Text('复制全部'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('分享对话'),
               onTap: () => Navigator.pop(context),
             ),
           ],

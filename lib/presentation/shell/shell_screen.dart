@@ -1,12 +1,13 @@
 // ============================================================================
-// 小酥 - 底部导航栏 Shell 布局
+// 小酥 v2 - 底部导航栏 Shell 布局（4 Tab）
+// 首页 / Bot商店 / 工作台 / 我的
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../theme/app_colors.dart';
 
 /// 底部导航栏 Shell 组件
-/// 包裹主 Tab 页面，提供统一的底部导航
 class ShellScreen extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
@@ -14,42 +15,43 @@ class ShellScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = AppColors.primary(isDark);
+
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: (index) {
           navigationShell.goBranch(
             index,
             initialLocation: index == navigationShell.currentIndex,
           );
         },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: '对话',
+        height: 64,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        indicatorColor: primaryColor.withOpacity(0.1),
+        destinations: [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined, color: AppColors.textSecondary(isDark)),
+            selectedIcon: Icon(Icons.home, color: primaryColor),
+            label: '首页',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.extension_outlined),
-            activeIcon: Icon(Icons.extension),
-            label: '技能',
+          NavigationDestination(
+            icon: Icon(Icons.store_outlined, color: AppColors.textSecondary(isDark)),
+            selectedIcon: Icon(Icons.store, color: primaryColor),
+            label: 'Bot商店',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: '任务',
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined, color: AppColors.textSecondary(isDark)),
+            selectedIcon: Icon(Icons.dashboard, color: primaryColor),
+            label: '工作台',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.monitor_heart_outlined),
-            activeIcon: Icon(Icons.monitor_heart),
-            label: '监控',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: '设置',
+          NavigationDestination(
+            icon: Icon(Icons.person_outline, color: AppColors.textSecondary(isDark)),
+            selectedIcon: Icon(Icons.person, color: primaryColor),
+            label: '我的',
           ),
         ],
       ),
