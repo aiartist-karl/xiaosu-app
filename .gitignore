@@ -19,3 +19,6 @@ ios/Pods/
 ios/.symlinks/
 *.xcworkspace
 !default.xcworkspace
+artifacts/
+*.apk
+*.ipa

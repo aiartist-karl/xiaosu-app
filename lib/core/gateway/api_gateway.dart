@@ -159,6 +159,7 @@ class ApiGateway {
 
     final request = http.Request('POST', uri);
     request.headers.addAll(defaultHeaders);
+    request.followRedirects = true;
     if (body != null) {
       request.body = jsonEncode(body);
     }
@@ -182,11 +183,14 @@ class ApiGateway {
     };
 
     try {
-      final response = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
+      // 使用 Request 对象以支持自动跟随重定向（307 等）
+      final request = http.Request('POST', uri);
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode(body);
+      request.followRedirects = true;
+
+      final streamedResponse = await _client.send(request);
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // 提取 Set-Cookie 中的 session_key
@@ -303,20 +307,30 @@ class ApiGateway {
         http.Response response;
         switch (method) {
           case 'GET':
-            response = await _client.get(uri, headers: defaultHeaders);
+            final getReq = http.Request('GET', uri);
+            getReq.headers.addAll(defaultHeaders);
+            getReq.followRedirects = true;
+            response = await http.Response.fromStream(await _client.send(getReq));
             break;
           case 'POST':
-            response = await _client.post(uri,
-                headers: defaultHeaders,
-                body: body != null ? jsonEncode(body) : null);
+            final postReq = http.Request('POST', uri);
+            postReq.headers.addAll(defaultHeaders);
+            postReq.body = body != null ? jsonEncode(body) : '';
+            postReq.followRedirects = true;
+            response = await http.Response.fromStream(await _client.send(postReq));
             break;
           case 'PUT':
-            response = await _client.put(uri,
-                headers: defaultHeaders,
-                body: body != null ? jsonEncode(body) : null);
+            final putReq = http.Request('PUT', uri);
+            putReq.headers.addAll(defaultHeaders);
+            putReq.body = body != null ? jsonEncode(body) : '';
+            putReq.followRedirects = true;
+            response = await http.Response.fromStream(await _client.send(putReq));
             break;
           case 'DELETE':
-            response = await _client.delete(uri, headers: defaultHeaders);
+            final delReq = http.Request('DELETE', uri);
+            delReq.headers.addAll(defaultHeaders);
+            delReq.followRedirects = true;
+            response = await http.Response.fromStream(await _client.send(delReq));
             break;
           default:
             return ApiResponse.fail('不支持的HTTP方法: $method');
