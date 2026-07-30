@@ -411,7 +411,7 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => _BotDetailScreenPlaceholder(botId: bot.id, bot: bot),
+            builder: (_) => BotDetailScreen(botId: bot.id, preloadBot: bot),
           ),
         );
       },

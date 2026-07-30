@@ -1,5 +1,7 @@
 // ============================================================================
-// 小酥 v2 - 聊天输入栏（含附件/模型切换/语音按钮）
+// 小酥 v3 - 聊天输入栏
+// 布局：⊕ + 📎 + 模型名(Auto▼) + 输入框(提示"发送消息") + 🎤
+// 输入文字后：输入框右侧出现发送按钮 ⬆（蓝色实心圆形）
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -11,6 +13,7 @@ class ChatInput extends StatefulWidget {
   final VoidCallback? onAttachment;
   final VoidCallback? onModelSelect;
   final VoidCallback? onStop;
+  final VoidCallback? onVoice;
   final bool isLoading;
   final bool isStreaming;
   final String selectedModel;
@@ -21,6 +24,7 @@ class ChatInput extends StatefulWidget {
     this.onAttachment,
     this.onModelSelect,
     this.onStop,
+    this.onVoice,
     this.isLoading = false,
     this.isStreaming = false,
     this.selectedModel = 'Auto',
@@ -58,10 +62,12 @@ class _ChatInputState extends State<ChatInput> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface(isDark),
-        border: Border(top: BorderSide(color: AppColors.divider(isDark), width: 0.5)),
+        border: Border(
+          top: BorderSide(color: AppColors.divider(isDark), width: 0.5),
+        ),
       ),
       padding: EdgeInsets.only(
-        left: 12,
+        left: 8,
         right: 8,
         top: 8,
         bottom: 8 + MediaQuery.of(context).padding.bottom,
@@ -72,56 +78,94 @@ class _ChatInputState extends State<ChatInput> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // + 按钮（展开附件菜单）
-              GestureDetector(
+              // ─── ⊕ 按钮（展开附件菜单） ───
+              _buildCircleButton(
+                icon: Icons.add,
+                isDark: isDark,
+                bgColor: AppColors.primary(isDark).withOpacity(0.1),
+                iconColor: AppColors.primary(isDark),
+                size: 34,
                 onTap: _showAttachmentMenu,
+              ),
+              const SizedBox(width: 4),
+
+              // ─── 📎 附件按钮 ───
+              _buildCircleButton(
+                icon: Icons.attach_file,
+                isDark: isDark,
+                bgColor: isDark
+                    ? AppColors.surfaceVariantDark
+                    : AppColors.surfaceVariantLight,
+                iconColor: AppColors.textSecondary(isDark),
+                size: 34,
+                iconSize: 18,
+                onTap: widget.onAttachment ?? () {},
+              ),
+              const SizedBox(width: 4),
+
+              // ─── 模型选择器 (Auto▼) ───
+              GestureDetector(
+                onTap: widget.onModelSelect ?? () {},
                 child: Container(
-                  width: 34,
-                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppColors.primary(isDark).withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    color: isDark
+                        ? AppColors.surfaceVariantDark
+                        : AppColors.surfaceVariantLight,
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(Icons.add, size: 20, color: AppColors.primary(isDark)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.selectedModel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary(isDark),
+                        ),
+                      ),
+                      const SizedBox(width: 1),
+                      Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: AppColors.textSecondary(isDark),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
-              // 附件按钮
-              GestureDetector(
-                onTap: widget.onAttachment ?? () {},
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.attach_file, size: 18, color: AppColors.textSecondary(isDark)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 输入框
+
+              // ─── 输入框 ───
               Expanded(
                 child: TextField(
                   controller: _controller,
                   focusNode: _focusNode,
                   decoration: InputDecoration(
-                    hintText: '给小酥发消息...',
-                    hintStyle: TextStyle(color: AppColors.textHint(isDark), fontSize: 15),
+                    hintText: '发送消息',
+                    hintStyle: TextStyle(
+                      color: AppColors.textHint(isDark),
+                      fontSize: 15,
+                    ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(22),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
                     fillColor: AppColors.surfaceVariant(isDark: isDark),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     isDense: true,
                   ),
                   maxLines: 4,
                   minLines: 1,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _handleSend(),
-                  onChanged: (v) => setState(() => _hasText = v.trim().isNotEmpty),
+                  onChanged: (v) =>
+                      setState(() => _hasText = v.trim().isNotEmpty),
                   style: TextStyle(
                     fontSize: 15,
                     color: AppColors.textPrimary(isDark),
@@ -129,11 +173,9 @@ class _ChatInputState extends State<ChatInput> {
                 ),
               ),
               const SizedBox(width: 6),
-              // 模型选择器 或 发送/停止按钮
-              if (_hasText || widget.isStreaming)
-                _buildActionButtons(isDark)
-              else
-                _buildModelSelector(isDark),
+
+              // ─── 右侧操作区：🎤 或 ⬆ 发送 ───
+              _buildRightAction(isDark),
             ],
           ),
         ],
@@ -141,76 +183,67 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  /// 右侧：模型选择器（无文字时显示）
-  Widget _buildModelSelector(bool isDark) {
+  /// 右侧：有文字时显示发送按钮，否则显示 🎤 语音按钮
+  Widget _buildRightAction(bool isDark) {
+    if (_hasText) {
+      // 发送按钮 ⬆（蓝色实心圆形）
+      return GestureDetector(
+        onTap: _handleSend,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppColors.primary(isDark),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.arrow_upward,
+            size: 18,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    // 🎤 语音按钮
+    return _buildCircleButton(
+      icon: Icons.mic,
+      isDark: isDark,
+      bgColor: isDark
+          ? AppColors.surfaceVariantDark
+          : AppColors.surfaceVariantLight,
+      iconColor: AppColors.textSecondary(isDark),
+      size: 34,
+      iconSize: 18,
+      onTap: widget.onVoice ?? () {},
+    );
+  }
+
+  /// 通用圆形按钮
+  Widget _buildCircleButton({
+    required IconData icon,
+    required bool isDark,
+    required Color bgColor,
+    required Color iconColor,
+    required double size,
+    double iconSize = 20,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: widget.onModelSelect ?? () {},
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          color: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
-          borderRadius: BorderRadius.circular(16),
+          color: bgColor,
+          shape: BoxShape.circle,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.selectedModel,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textSecondary(isDark),
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(Icons.keyboard_arrow_down, size: 16, color: AppColors.textSecondary(isDark)),
-          ],
-        ),
+        child: Icon(icon, size: iconSize, color: iconColor),
       ),
     );
   }
 
-  /// 右侧：发送按钮 + 停止按钮（有文字或流式输出时显示）
-  Widget _buildActionButtons(bool isDark) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 停止按钮（流式输出时显示）
-        if (widget.isStreaming)
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: GestureDetector(
-              onTap: widget.onStop ?? () {},
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.error(isDark).withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.stop, size: 18, color: AppColors.error(isDark)),
-              ),
-            ),
-          ),
-        // 发送按钮
-        if (_hasText)
-          GestureDetector(
-            onTap: _handleSend,
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: AppColors.primary(isDark),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_upward, size: 18, color: Colors.white),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// 附件菜单（弹出底部选项）
+  /// ⊕ 附件菜单 BottomSheet：上传图片、上传文件、拍照
   void _showAttachmentMenu() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -225,6 +258,7 @@ class _ChatInputState extends State<ChatInput> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 拖拽条
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Container(
@@ -239,15 +273,24 @@ class _ChatInputState extends State<ChatInput> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _menuItem(Icons.image, '图片', AppColors.primary(isDark), () {
-                    Navigator.pop(ctx);
-                  }),
-                  _menuItem(Icons.description, '文件', AppColors.info(isDark), () {
-                    Navigator.pop(ctx);
-                  }),
-                  _menuItem(Icons.camera_alt, '拍照', AppColors.secondary(isDark), () {
-                    Navigator.pop(ctx);
-                  }),
+                  _menuItem(
+                    Icons.image,
+                    '上传图片',
+                    AppColors.primary(isDark),
+                    () => Navigator.pop(ctx),
+                  ),
+                  _menuItem(
+                    Icons.description,
+                    '上传文件',
+                    AppColors.info(isDark),
+                    () => Navigator.pop(ctx),
+                  ),
+                  _menuItem(
+                    Icons.camera_alt,
+                    '拍照',
+                    AppColors.secondary(isDark),
+                    () => Navigator.pop(ctx),
+                  ),
                 ],
               ),
             ],
@@ -257,7 +300,12 @@ class _ChatInputState extends State<ChatInput> {
     );
   }
 
-  Widget _menuItem(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _menuItem(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
