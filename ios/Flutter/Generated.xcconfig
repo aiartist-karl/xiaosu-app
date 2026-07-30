@@ -1,7 +1,7 @@
 // This is a generated file; do not edit or check into version control.
-FLUTTER_ROOT=/root/Flutter
-FLUTTER_APPLICATION_PATH=/app/data/所有对话/主对话/xiaosucore
-FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=/app/data/所有对话/主对话/xiaosucore/ios/Flutter/ephemeral/Packages/.packages/FlutterFramework
+FLUTTER_ROOT=/root/flutter
+FLUTTER_APPLICATION_PATH=/root/xiaosu-flutter-repo
+FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=/root/xiaosu-flutter-repo/ios/Flutter/ephemeral/Packages/.packages/FlutterFramework
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_TARGET=lib/main.dart
 FLUTTER_BUILD_DIR=build
