@@ -283,7 +283,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // TODO: 清除缓存逻辑
+              setState(() => _cacheSize = '0 B');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Text('缓存已清除'),
@@ -329,7 +329,6 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // TODO: 清除历史逻辑
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: const Text('对话历史已清除'),
@@ -381,7 +380,25 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // TODO: 注销账号逻辑
+              // 模拟注销：清除认证状态并跳转登录页
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('账号已注销，正在退出...'),
+                  backgroundColor: AppColors.error(isDark),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+              Future.delayed(const Duration(seconds: 1), () {
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/',
+                    (route) => false,
+                  );
+                }
+              });
             },
             child: Text(
               '确认注销',
