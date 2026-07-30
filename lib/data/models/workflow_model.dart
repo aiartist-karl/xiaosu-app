@@ -51,11 +51,11 @@ enum CozeWorkflowNodeType {
   knowledgeDeleter('KnowledgeDeleter', '知识库删除', CozeNodeCategory.knowledge),
 
   // 数据库（5）
-  databaseQuery('DatabaseQuery', '数据库查询', CozeNodeCategory.database),
-  databaseInsert('DatabaseInsert', '数据库插入', CozeNodeCategory.database),
-  databaseUpdate('DatabaseUpdate', '数据库更新', CozeNodeCategory.database),
-  databaseDelete('DatabaseDelete', '数据库删除', CozeNodeCategory.database),
-  databaseCustomSql('DatabaseCustomSQL', '自定义 SQL', CozeNodeCategory.database),
+  databaseQuery('DatabaseQuery', '数据库查询', CozeNodeCategory.db),
+  databaseInsert('DatabaseInsert', '数据库插入', CozeNodeCategory.db),
+  databaseUpdate('DatabaseUpdate', '数据库更新', CozeNodeCategory.db),
+  databaseDelete('DatabaseDelete', '数据库删除', CozeNodeCategory.db),
+  databaseCustomSql('DatabaseCustomSQL', '自定义 SQL', CozeNodeCategory.db),
 
   // 对话操作（10）
   createConversation('CreateConversation', '创建对话', CozeNodeCategory.conversation),
@@ -107,7 +107,7 @@ enum CozeNodeCategory {
   logic('逻辑控制'),
   data('数据操作'),
   knowledge('知识库'),
-  database('数据库'),
+  db('数据库'),
   conversation('对话操作'),
   network('网络/集成'),
   other('其他');
