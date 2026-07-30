@@ -10,6 +10,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../models/chat_message.dart';
 import 'tool_call_card.dart';
 import '../../theme/app_colors.dart';
@@ -308,8 +309,13 @@ class _MessageBubbleState extends State<MessageBubble> {
           color: isDark ? Colors.white.withOpacity(0.03) : Colors.grey.shade50,
         ),
       ),
-      onTapLink: (text, href, title) {
-        // TODO: 用 url_launcher 打开链接
+      onTapLink: (text, href, title) async {
+        if (href != null) {
+          final uri = Uri.tryParse(href);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
       },
     );
   }

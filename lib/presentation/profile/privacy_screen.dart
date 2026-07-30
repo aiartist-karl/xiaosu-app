@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:xiaosu/presentation/theme/app_colors.dart';
 
 /// 隐私设置页面
@@ -393,10 +394,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
               );
               Future.delayed(const Duration(seconds: 1), () {
                 if (context.mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/',
-                    (route) => false,
-                  );
+                  context.go('/login');
                 }
               });
             },
