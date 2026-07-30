@@ -1,28 +1,14 @@
 // ============================================================================
 // 小酥 v2 - Bot 商店
+// Phase 2: 对接 Coze Studio Bot API，保留原有 UI 设计风格
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../../data/models/bot_model.dart';
+import '../../core/bot/bot_manager.dart';
 import '../theme/app_colors.dart';
-
-/// Bot 模型
-class BotItem {
-  final String id;
-  final String name;
-  final String description;
-  final String category;
-  final bool isOwned;
-  final bool isPreset;
-
-  const BotItem({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.category,
-    this.isOwned = false,
-    this.isPreset = false,
-  });
-}
+import 'bot_detail_screen.dart';
+import 'bot_editor_screen.dart';
 
 /// Bot 商店页面
 class BotStoreScreen extends StatefulWidget {
@@ -37,39 +23,95 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
   int _selectedCategory = 0;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _showSearch = false;
 
-  final List<String> _categories = ['全部', '自媒体', '金融', '法律', '互联网', '科研'];
-
-  // 模拟数据（后续对接后端 API）
-  final List<BotItem> _bots = [
-    BotItem(id: '1', name: '智能写作助手', description: '帮你写文案、文章、营销内容', category: '自媒体', isPreset: true),
-    BotItem(id: '2', name: '投资分析员', description: '个股分析、行情解读、投资建议', category: '金融', isPreset: true),
-    BotItem(id: '3', name: '法律顾问', description: '法律咨询、合同审核、诉讼文书', category: '法律', isPreset: true),
-    BotItem(id: '4', name: '行业研究员', description: '行业调研、竞品分析、市场洞察', category: '互联网', isPreset: true),
-    BotItem(id: '5', name: '论文助手', description: '论文搜索、文献综述、学术写作', category: '科研', isPreset: true),
-    BotItem(id: '6', name: '代码专家', description: '代码生成、Bug修复、架构设计', category: '互联网', isPreset: true),
-    BotItem(id: '7', name: '翻译官', description: '多语言翻译、本地化、术语管理', category: '全部', isPreset: true),
-    BotItem(id: '8', name: '日报生成器', description: '自动生成工作日报、周报', category: '自媒体', isOwned: true),
+  final List<String> _categories = [
+    '全部', '自媒体', '金融', '法律', '互联网', '科研', '教育',
   ];
 
-  List<BotItem> get _filteredBots {
+  /// 头像背景色池 —— 让每个 Bot 的圆形头像有不同底色
+  static const List<Color> _avatarColors = [
+    Color(0xFF6C63FF), Color(0xFFE8895C), Color(0xFF10B981),
+    Color(0xFFF59E0B), Color(0xFF3B82F6), Color(0xFFEF4444),
+    Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF14B8A6),
+    Color(0xFFF97316),
+  ];
+
+  final BotManager _botManager = BotManager.instance;
+
+  List<BotModel> _bots = [];
+  bool _isLoading = false;
+  bool _hasError = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBots();
+    _botManager.onBotListUpdated.listen((bots) {
+      if (mounted) {
+        setState(() {
+          _bots = bots;
+          _isLoading = false;
+        });
+      }
+    });
+  }
+
+  Future<void> _loadBots({bool forceRefresh = false}) async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
+
+    try {
+      final bots = await _botManager.fetchBotList(
+        forceRefresh: forceRefresh,
+        keyword: _searchQuery.isNotEmpty ? _searchQuery : null,
+      );
+
+      if (mounted) {
+        setState(() {
+          _bots = bots;
+          _isLoading = false;
+          if (_botManager.lastError != null && bots.isEmpty) {
+            _hasError = true;
+            _errorMessage = _botManager.lastError;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+          _errorMessage = '加载失败: ${e.toString()}';
+        });
+      }
+    }
+  }
+
+  List<BotModel> get _filteredBots {
     var list = _bots;
-    // Tab 过滤
+
     if (_selectedTab == 1) {
       list = list.where((b) => b.isOwned).toList();
     } else if (_selectedTab == 2) {
-      list = list.where((b) => b.isPreset).take(4).toList(); // 模拟最近使用
+      list = list.where((b) => b.status == BotStatus.published).take(4).toList();
     }
-    // 分类过滤
+
     if (_selectedCategory > 0) {
       final cat = _categories[_selectedCategory];
-      list = list.where((b) => b.category == cat).toList();
+      list = list.where((b) => b.category == cat || b.category == null).toList();
     }
-    // 搜索过滤
+
     if (_searchQuery.isNotEmpty) {
       list = list.where((b) =>
-        b.name.contains(_searchQuery) || b.description.contains(_searchQuery)).toList();
+          b.name.contains(_searchQuery) ||
+          b.description.contains(_searchQuery)).toList();
     }
+
     return list;
   }
 
@@ -84,6 +126,7 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: AppColors.background(isDark),
       body: SafeArea(
         child: Column(
           children: [
@@ -91,8 +134,8 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
             _buildTopBar(isDark),
             // ─── Tab 切换 ───
             _buildTabBar(isDark),
-            // ─── 搜索框 ───
-            _buildSearchBar(isDark),
+            // ─── 搜索框（点击搜索图标展开） ───
+            if (_showSearch) _buildSearchBar(isDark),
             // ─── 分类横滑 ───
             _buildCategoryBar(isDark),
             // ─── Bot 列表 ───
@@ -101,8 +144,11 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: 创建新 Bot
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const BotEditorScreen()),
+          );
+          _loadBots(forceRefresh: true);
         },
         backgroundColor: AppColors.primary(isDark),
         child: const Icon(Icons.add, color: Colors.white),
@@ -110,13 +156,14 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
     );
   }
 
+  // ─────────────────── 顶部栏 ───────────────────
   Widget _buildTopBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
           Text(
-            'Bot 商店',
+            'Bot商店',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -124,41 +171,67 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
             ),
           ),
           const Spacer(),
-          Icon(Icons.tune, size: 22, color: AppColors.textSecondary(isDark)),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _showSearch = !_showSearch;
+                if (!_showSearch) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                  _loadBots();
+                }
+              });
+            },
+            child: Icon(
+              _showSearch ? Icons.close : Icons.search,
+              size: 24,
+              color: AppColors.textSecondary(isDark),
+            ),
+          ),
         ],
       ),
     );
   }
 
+  // ─────────────────── Tab 栏（蓝色下划线选中态） ───────────────────
   Widget _buildTabBar(bool isDark) {
     final tabs = ['精选', '我的', '最近使用'];
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: List.generate(tabs.length, (i) {
           final selected = _selectedTab == i;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
+          return Expanded(
             child: GestureDetector(
               onTap: () => setState(() => _selectedTab = i),
+              behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.primary(isDark)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  border: selected
-                      ? null
-                      : Border.all(color: AppColors.divider(isDark), width: 0.5),
-                ),
-                child: Text(
-                  tabs[i],
-                  style: TextStyle(
-                    color: selected ? Colors.white : AppColors.textSecondary(isDark),
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tabs[i],
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                        color: selected
+                            ? AppColors.info(isDark)
+                            : AppColors.textSecondary(isDark),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 2.5,
+                      width: 24,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.info(isDark)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -168,9 +241,10 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
     );
   }
 
+  // ─────────────────── 搜索框 ───────────────────
   Widget _buildSearchBar(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -184,6 +258,7 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
             Expanded(
               child: TextField(
                 controller: _searchController,
+                autofocus: true,
                 decoration: const InputDecoration(
                   hintText: '搜索 Bot...',
                   border: InputBorder.none,
@@ -191,15 +266,35 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
                 style: TextStyle(fontSize: 14, color: AppColors.textPrimary(isDark)),
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: (v) {
+                  setState(() => _searchQuery = v);
+                  _debouncedSearch();
+                },
               ),
             ),
+            if (_searchQuery.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                  setState(() => _searchQuery = '');
+                  _loadBots();
+                },
+                child: Icon(Icons.close, size: 18, color: AppColors.textHint(isDark)),
+              ),
           ],
         ),
       ),
     );
   }
 
+  Future<void> _debouncedSearch() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (_searchQuery.isNotEmpty) {
+      _loadBots(forceRefresh: true);
+    }
+  }
+
+  // ─────────────────── 分类横滑条 ───────────────────
   Widget _buildCategoryBar(bool isDark) {
     return SizedBox(
       height: 44,
@@ -216,7 +311,7 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: selected
-                    ? AppColors.primary(isDark).withOpacity(0.12)
+                    ? AppColors.info(isDark).withOpacity(0.12)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -224,7 +319,7 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
               child: Text(
                 _categories[i],
                 style: TextStyle(
-                  color: selected ? AppColors.primary(isDark) : AppColors.textSecondary(isDark),
+                  color: selected ? AppColors.info(isDark) : AppColors.textSecondary(isDark),
                   fontSize: 13,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
@@ -236,7 +331,41 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
     );
   }
 
+  // ─────────────────── Bot 网格列表 ───────────────────
   Widget _buildBotGrid(bool isDark) {
+    if (_isLoading && _bots.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_hasError && _bots.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off, size: 48, color: AppColors.textHint(isDark)),
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage ?? '加载失败',
+              style: TextStyle(color: AppColors.textSecondary(isDark)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => _loadBots(forceRefresh: true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary(isDark),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('重试', style: TextStyle(color: Colors.white, fontSize: 14)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final list = _filteredBots;
     if (list.isEmpty) {
       return Center(
@@ -245,118 +374,177 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
           children: [
             Icon(Icons.smart_toy_outlined, size: 48, color: AppColors.textHint(isDark)),
             const SizedBox(height: 12),
-            Text(
-              '暂无 Bot',
-              style: TextStyle(color: AppColors.textSecondary(isDark)),
+            Text('暂无 Bot', style: TextStyle(color: AppColors.textSecondary(isDark))),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => _loadBots(forceRefresh: true),
+              child: Text('点击刷新', style: TextStyle(color: AppColors.primary(isDark), fontSize: 13)),
             ),
           ],
         ),
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
+    return RefreshIndicator(
+      onRefresh: () => _loadBots(forceRefresh: true),
+      color: AppColors.primary(isDark),
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.78,
+        ),
+        itemCount: list.length,
+        itemBuilder: (context, index) => _buildBotCard(list[index], index, isDark),
       ),
-      itemCount: list.length,
-      itemBuilder: (context, index) => _buildBotCard(list[index], isDark),
     );
   }
 
-  Widget _buildBotCard(BotItem bot, bool isDark) {
+  // ─────────────────── Bot 卡片 ───────────────────
+  Widget _buildBotCard(BotModel bot, int index, bool isDark) {
+    final avatarColor = _avatarColors[index % _avatarColors.length];
+    final isMyTab = _selectedTab == 1;
+
     return GestureDetector(
       onTap: () {
-        // TODO: 跳转 Bot 详情页
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => _BotDetailScreenPlaceholder(botId: bot.id, bot: bot),
+          ),
+        );
       },
       onLongPress: () {
-        if (bot.isOwned) {
-          _showBotActions(bot);
-        }
+        if (bot.isOwned) _showBotActions(bot);
       },
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppColors.surface(isDark),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.divider(isDark),
-            width: 0.5,
-          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black.withOpacity(0.25) : Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 图标
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.primary(isDark).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.smart_toy_outlined,
-                color: AppColors.primary(isDark),
-                size: 24,
+            // ── 头像 60x60 圆形 + 彩色背景 ──
+            Center(
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: avatarColor.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: bot.iconUri != null
+                    ? ClipOval(
+                        child: Image.network(
+                          bot.iconUri!,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(
+                              bot.name.isNotEmpty ? bot.name[0] : 'B',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: avatarColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          bot.name.isNotEmpty ? bot.name[0] : 'B',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: avatarColor,
+                          ),
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 10),
-            // 名称
+
+            // ── 名称（粗体） ──
             Text(
               bot.name,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary(isDark),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            // 描述
-            Text(
-              bot.description,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary(isDark),
-                height: 1.3,
+
+            // ── 简介（2 行省略，灰色小字） ──
+            Expanded(
+              child: Text(
+                bot.description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary(isDark),
+                  height: 1.35,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
-            const Spacer(),
-            // 底部：标签 + 按钮
+
+            // ── 底部：标签 + 按钮 ──
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary(isDark).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    bot.category,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppColors.primary(isDark),
-                    ),
+                // 标签
+                Expanded(
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    children: [
+                      _tagChip('#${bot.category ?? "通用"}', isDark),
+                    ],
                   ),
                 ),
-                const Spacer(),
+                // 使用 / 编辑按钮
                 GestureDetector(
-                  onTap: () {
-                    // TODO: 开始对话
+                  onTap: () async {
+                    if (isMyTab) {
+                      // "我的" Tab → 编辑
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => BotEditorScreen(botId: bot.id, preloadBot: bot),
+                        ),
+                      );
+                      _loadBots(forceRefresh: true);
+                    } else {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => BotDetailScreen(botId: bot.id, preloadBot: bot),
+                        ),
+                      );
+                      _loadBots(forceRefresh: true);
+                    }
                   },
-                  child: Text(
-                    bot.isOwned ? '编辑' : '使用',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary(isDark),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppColors.info(isDark),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      isMyTab ? '编辑' : '使用',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                   ),
                 ),
@@ -368,7 +556,23 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
     );
   }
 
-  void _showBotActions(BotItem bot) {
+  /// 标签小药丸
+  Widget _tagChip(String label, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.info(isDark).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: AppColors.info(isDark)),
+      ),
+    );
+  }
+
+  // ─────────────────── Bot 操作菜单 ───────────────────
+  void _showBotActions(BotModel bot) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
@@ -383,20 +587,85 @@ class _BotStoreScreenState extends State<BotStoreScreen> {
             ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text('编辑'),
-              onTap: () => Navigator.pop(ctx),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BotEditorScreen(botId: bot.id, preloadBot: bot),
+                  ),
+                );
+                _loadBots(forceRefresh: true);
+              },
             ),
             ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('分享'),
-              onTap: () => Navigator.pop(ctx),
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('复制'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final duplicated = await _botManager.duplicateBot(bot.id);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(duplicated != null ? '复制成功' : '复制失败')),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.publish_outlined),
+              title: const Text('发布'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final success = await _botManager.publishBot(bot.id);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(success ? '发布成功' : '发布失败')),
+                  );
+                }
+              },
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('删除', style: TextStyle(color: Colors.red)),
-              onTap: () => Navigator.pop(ctx),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDeleteBot(bot);
+              },
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteBot(BotModel bot) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        title: Text('确认删除', style: TextStyle(color: AppColors.textPrimary(isDark))),
+        content: Text(
+          '确定要删除 Bot「${bot.name}」吗？此操作不可恢复。',
+          style: TextStyle(color: AppColors.textSecondary(isDark)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await _botManager.deleteBot(bot.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(success ? '已删除' : '删除失败')),
+                );
+              }
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }

@@ -1,8 +1,9 @@
 // ============================================================================
-// 小酥 - 聊天消息模型
+// 小酥 - 聊天消息模型（v3: 增加 toolCalls 支持）
 // ============================================================================
 
 import 'package:equatable/equatable.dart';
+import '../presentation/chat/widgets/tool_call_card.dart';
 
 /// 消息角色枚举
 enum MessageRole {
@@ -32,11 +33,12 @@ class ChatMessage extends Equatable {
   final MessageRole role;
   final DateTime timestamp;
   final MessageStatus status;
-  final String? model;          // 使用的模型
-  final int? tokenCount;        // token数量
-  final double? latency;        // 响应延迟(ms)
-  final Map<String, dynamic>? metadata; // 额外元数据
-  final List<MessageAttachment>? attachments; // 附件列表
+  final String? model;
+  final int? tokenCount;
+  final double? latency;
+  final Map<String, dynamic>? metadata;
+  final List<MessageAttachment>? attachments;
+  final List<ToolCallInfo>? toolCalls;
 
   const ChatMessage({
     required this.id,
@@ -50,6 +52,7 @@ class ChatMessage extends Equatable {
     this.latency,
     this.metadata,
     this.attachments,
+    this.toolCalls,
   });
 
   /// 从JSON创建
@@ -111,6 +114,8 @@ class ChatMessage extends Equatable {
     double? latency,
     Map<String, dynamic>? metadata,
     List<MessageAttachment>? attachments,
+    List<ToolCallInfo>? toolCalls,
+    bool? clearToolCalls,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -124,11 +129,12 @@ class ChatMessage extends Equatable {
       latency: latency ?? this.latency,
       metadata: metadata ?? this.metadata,
       attachments: attachments ?? this.attachments,
+      toolCalls: clearToolCalls == true ? null : (toolCalls ?? this.toolCalls),
     );
   }
 
   @override
-  List<Object?> get props => [id, conversationId, content, role, timestamp, status];
+  List<Object?> get props => [id, conversationId, content, role, timestamp, status, toolCalls];
 }
 
 /// 消息附件
@@ -161,9 +167,9 @@ class MessageAttachment extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id, 'type': type, 'url': url,
-    'name': name, 'size': size, 'extra': extra,
-  };
+        'id': id, 'type': type, 'url': url,
+        'name': name, 'size': size, 'extra': extra,
+      };
 
   @override
   List<Object?> get props => [id, type, url, name, size];

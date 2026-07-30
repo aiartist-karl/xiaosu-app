@@ -1,16 +1,25 @@
 // ============================================================================
-// 小酥 v2 - Bot 编辑器（简化版）
+// 小酥 v2 - Bot 编辑器
+// Phase 2: 对接 Coze Studio Bot API，保留原有 UI 设计风格
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:xiaosu/presentation/theme/app_colors.dart';
+import '../../data/models/bot_model.dart';
+import '../../core/bot/bot_manager.dart';
+import '../theme/app_colors.dart';
 
 /// Bot 编辑器
 class BotEditorScreen extends StatefulWidget {
+  /// 编辑模式下传入 botId
   final String? botId;
+  /// 可选的预加载 Bot 数据
+  final BotModel? preloadBot;
 
-  const BotEditorScreen({super.key, this.botId});
+  const BotEditorScreen({
+    super.key,
+    this.botId,
+    this.preloadBot,
+  });
 
   @override
   State<BotEditorScreen> createState() => _BotEditorScreenState();
@@ -18,25 +27,32 @@ class BotEditorScreen extends StatefulWidget {
 
 class _BotEditorScreenState extends State<BotEditorScreen> {
   final _nameController = TextEditingController();
+  final _descController = TextEditingController();
   final _promptController = TextEditingController();
+  final _onboardingController = TextEditingController();
   int _selectedAvatarIndex = 0;
   final Set<String> _selectedSkills = {};
   final Set<String> _selectedPlugins = {};
 
+  bool _isLoading = false;
+  bool _isSaving = false;
+
+  final BotManager _botManager = BotManager.instance;
+
   /// 预设头像列表
   static const List<Map<String, String>> _presetAvatars = [
-    {'emoji': '\u{1F916}', 'label': '机器人'},
-    {'emoji': '\u{1F4DD}', 'label': '写作'},
-    {'emoji': '\u{1F3A8}', 'label': '绘画'},
-    {'emoji': '\u{1F4BB}', 'label': '代码'},
-    {'emoji': '\u{1F30D}', 'label': '翻译'},
-    {'emoji': '\u{1F4CA}', 'label': '数据'},
-    {'emoji': '\u{1F3AF}', 'label': '目标'},
-    {'emoji': '\u{1F4A1}', 'label': '创意'},
-    {'emoji': '\u{1F52C}', 'label': '科研'},
-    {'emoji': '\u{1F4DA}', 'label': '学习'},
-    {'emoji': '\u{1F3B5}', 'label': '音乐'},
-    {'emoji': '\u{1F3CB}', 'label': '健身'},
+    {'emoji': '🤖', 'label': '机器人'},
+    {'emoji': '📝', 'label': '写作'},
+    {'emoji': '🎨', 'label': '绘画'},
+    {'emoji': '💻', 'label': '代码'},
+    {'emoji': '🌍', 'label': '翻译'},
+    {'emoji': '📊', 'label': '数据'},
+    {'emoji': '🎯', 'label': '目标'},
+    {'emoji': '💡', 'label': '创意'},
+    {'emoji': '🔬', 'label': '科研'},
+    {'emoji': '📚', 'label': '学习'},
+    {'emoji': '🎵', 'label': '音乐'},
+    {'emoji': '🏋', 'label': '健身'},
   ];
 
   /// 可用技能列表
@@ -86,27 +102,64 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
   void initState() {
     super.initState();
     if (_isEditMode) {
-      _nameController.text = '智能写作助手';
-      _promptController.text = '你是一个专业的写作助手，擅长撰写各类文案。你需要根据用户的需求，生成高质量的文章内容。请注意保持逻辑清晰、语言流畅。';
-      _selectedAvatarIndex = 1;
-      _selectedSkills.addAll(['search', 'file']);
-      _selectedPlugins.add('email');
+      _loadBotData();
     }
     _promptController.addListener(() {
       if (mounted) setState(() {});
     });
   }
 
+  /// 加载 Bot 数据（编辑模式）
+  Future<void> _loadBotData() async {
+    setState(() => _isLoading = true);
+
+    BotModel? bot = widget.preloadBot;
+
+    // 如果没有预加载数据，从 BotManager 获取
+    if (bot == null && widget.botId != null) {
+      bot = _botManager.getCachedBot(widget.botId!);
+      if (bot == null) {
+        bot = await _botManager.getBotDetail(widget.botId!);
+      }
+    }
+
+    if (bot != null && mounted) {
+      _nameController.text = bot.name;
+      _descController.text = bot.description;
+      if (bot.prompt != null) {
+        _promptController.text = bot.prompt!;
+      }
+      if (bot.onboardingPrompt != null) {
+        _onboardingController.text = bot.onboardingPrompt!;
+      }
+      // 恢复插件选择
+      _selectedPlugins.addAll(bot.pluginIds);
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
+    _descController.dispose();
     _promptController.dispose();
+    _onboardingController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background(isDark),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background(isDark),
@@ -123,8 +176,12 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                   _buildAvatarSection(isDark),
                   const SizedBox(height: 24),
                   _buildNameInput(isDark),
+                  const SizedBox(height: 16),
+                  _buildDescInput(isDark),
                   const SizedBox(height: 24),
                   _buildPromptEditor(isDark),
+                  const SizedBox(height: 24),
+                  _buildOnboardingInput(isDark),
                   const SizedBox(height: 24),
                   _buildSkillsSection(isDark),
                   const SizedBox(height: 24),
@@ -149,7 +206,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
           children: [
             IconButton(
               icon: Icon(Icons.close, size: 22, color: AppColors.textPrimary(isDark)),
-              onPressed: () => context.pop(),
+              onPressed: () => Navigator.pop(context),
             ),
             const SizedBox(width: 4),
             Text(
@@ -160,6 +217,14 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                 color: AppColors.textPrimary(isDark),
               ),
             ),
+            if (_isEditMode) ...[
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.publish_outlined, size: 22, color: AppColors.primary(isDark)),
+                onPressed: () => _publishBot(isDark),
+                tooltip: '发布',
+              ),
+            ],
           ],
         ),
       ),
@@ -278,10 +343,45 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
               style: TextStyle(fontSize: 15, color: AppColors.textPrimary(isDark)),
               decoration: InputDecoration(
                 hintText: '给你的 Bot 起个名字',
-                hintStyle: TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textHint(isDark),
-                ),
+                hintStyle: TextStyle(fontSize: 15, color: AppColors.textHint(isDark)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDescInput(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bot 描述',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary(isDark),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface(isDark),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider(isDark), width: 0.5),
+            ),
+            child: TextField(
+              controller: _descController,
+              maxLines: 2,
+              style: TextStyle(fontSize: 14, color: AppColors.textPrimary(isDark)),
+              decoration: InputDecoration(
+                hintText: '简要描述 Bot 的功能和特点',
+                hintStyle: TextStyle(fontSize: 14, color: AppColors.textHint(isDark)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 border: InputBorder.none,
               ),
@@ -314,9 +414,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                 '$_promptLength / $_maxPromptLength',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isOverLimit
-                      ? AppColors.error(isDark)
-                      : AppColors.textHint(isDark),
+                  color: isOverLimit ? AppColors.error(isDark) : AppColors.textHint(isDark),
                 ),
               ),
             ],
@@ -324,10 +422,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
           const SizedBox(height: 4),
           Text(
             '定义 Bot 的角色、行为和能力边界',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textHint(isDark),
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textHint(isDark)),
           ),
           const SizedBox(height: 8),
           Container(
@@ -335,9 +430,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
               color: AppColors.surface(isDark),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isOverLimit
-                    ? AppColors.error(isDark)
-                    : AppColors.divider(isDark),
+                color: isOverLimit ? AppColors.error(isDark) : AppColors.divider(isDark),
                 width: 0.5,
               ),
             ),
@@ -358,6 +451,49 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                   color: AppColors.textHint(isDark),
                   height: 1.6,
                 ),
+                contentPadding: const EdgeInsets.all(16),
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOnboardingInput(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '开场白',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary(isDark),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '用户进入对话时 Bot 的第一句话',
+            style: TextStyle(fontSize: 12, color: AppColors.textHint(isDark)),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface(isDark),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider(isDark), width: 0.5),
+            ),
+            child: TextField(
+              controller: _onboardingController,
+              maxLines: 3,
+              style: TextStyle(fontSize: 14, color: AppColors.textPrimary(isDark)),
+              decoration: InputDecoration(
+                hintText: '你好！我是你的 AI 助手，有什么可以帮你的吗？',
+                hintStyle: TextStyle(fontSize: 14, color: AppColors.textHint(isDark)),
                 contentPadding: const EdgeInsets.all(16),
                 border: InputBorder.none,
               ),
@@ -397,10 +533,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
           const SizedBox(height: 8),
           Text(
             '为 Bot 添加可用的技能能力',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textHint(isDark),
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textHint(isDark)),
           ),
           const SizedBox(height: 12),
           Container(
@@ -465,10 +598,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
           const SizedBox(height: 8),
           Text(
             '为 Bot 接入外部插件服务',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textHint(isDark),
-            ),
+            style: TextStyle(fontSize: 12, color: AppColors.textHint(isDark)),
           ),
           const SizedBox(height: 12),
           Container(
@@ -551,10 +681,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                   const SizedBox(height: 2),
                   Text(
                     desc,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textHint(isDark),
-                    ),
+                    style: TextStyle(fontSize: 11, color: AppColors.textHint(isDark)),
                   ),
                 ],
               ),
@@ -564,14 +691,10 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary(isDark)
-                    : Colors.transparent,
+                color: isSelected ? AppColors.primary(isDark) : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: isSelected
-                      ? AppColors.primary(isDark)
-                      : AppColors.textHint(isDark),
+                  color: isSelected ? AppColors.primary(isDark) : AppColors.textHint(isDark),
                   width: 1.5,
                 ),
               ),
@@ -600,14 +723,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
           children: [
             Expanded(
               child: GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('已保存为草稿'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                },
+                onTap: () => _saveDraft(isDark),
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
@@ -616,14 +732,20 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                     border: Border.all(color: AppColors.divider(isDark), width: 0.5),
                   ),
                   child: Center(
-                    child: Text(
-                      '保存草稿',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary(isDark),
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(
+                            '保存草稿',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary(isDark),
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -632,27 +754,7 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
             Expanded(
               flex: 2,
               child: GestureDetector(
-                onTap: () {
-                  if (_nameController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('请输入 Bot 名称')),
-                    );
-                    return;
-                  }
-                  if (_promptController.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('请输入系统提示词')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_isEditMode ? '已更新并发布' : 'Bot 已创建并发布'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                  context.pop();
-                },
+                onTap: () => _saveAndPublish(isDark),
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
@@ -667,14 +769,20 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
                     ],
                   ),
                   child: Center(
-                    child: Text(
-                      _isEditMode ? '更新并发布' : '发布 Bot',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text(
+                            _isEditMode ? '更新并发布' : '发布 Bot',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),
@@ -683,5 +791,164 @@ class _BotEditorScreenState extends State<BotEditorScreen> {
         ),
       ),
     );
+  }
+
+  // ==========================================================================
+  // 业务逻辑
+  // ==========================================================================
+
+  /// 构建 BotModel
+  BotModel _buildBotFromForm() {
+    return BotModel(
+      id: widget.botId ?? '',
+      name: _nameController.text.trim(),
+      description: _descController.text.trim(),
+      prompt: _promptController.text.trim().isNotEmpty ? _promptController.text.trim() : null,
+      onboardingPrompt: _onboardingController.text.trim().isNotEmpty
+          ? _onboardingController.text.trim()
+          : null,
+      pluginIds: _selectedPlugins.toList(),
+      isOwned: true,
+    );
+  }
+
+  /// 表单校验
+  bool _validateForm() {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入 Bot 名称')),
+      );
+      return false;
+    }
+    if (_promptController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入系统提示词')),
+      );
+      return false;
+    }
+    if (_promptLength > _maxPromptLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('提示词超过最大长度')),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  /// 保存草稿（不发布）
+  Future<void> _saveDraft(bool isDark) async {
+    if (!_validateForm()) return;
+
+    setState(() => _isSaving = true);
+
+    final bot = _buildBotFromForm();
+    BotModel? result;
+
+    if (_isEditMode && widget.botId != null) {
+      result = await _botManager.updateBot(widget.botId!, bot);
+    } else {
+      result = await _botManager.createBot(bot);
+    }
+
+    setState(() => _isSaving = false);
+
+    if (mounted) {
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('已保存为草稿'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_botManager.lastError ?? '保存失败'),
+            backgroundColor: AppColors.error(isDark),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 保存并发布
+  Future<void> _saveAndPublish(bool isDark) async {
+    if (!_validateForm()) return;
+
+    setState(() => _isSaving = true);
+
+    final bot = _buildBotFromForm();
+    BotModel? result;
+
+    if (_isEditMode && widget.botId != null) {
+      // 先更新
+      result = await _botManager.updateBot(widget.botId!, bot);
+      if (result != null) {
+        // 再发布
+        final published = await _botManager.publishBot(widget.botId!);
+        setState(() => _isSaving = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(published ? '已更新并发布' : '更新成功，但发布失败'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+          if (published) Navigator.pop(context, result);
+        }
+      } else {
+        setState(() => _isSaving = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_botManager.lastError ?? '保存失败'),
+              backgroundColor: AppColors.error(isDark),
+            ),
+          );
+        }
+      }
+    } else {
+      // 新建并创建
+      result = await _botManager.createBot(bot);
+      if (result != null) {
+        // 创建成功后发布
+        final published = await _botManager.publishBot(result.id);
+        setState(() => _isSaving = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(published ? 'Bot 已创建并发布' : 'Bot 已创建，发布失败'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+          Navigator.pop(context, result);
+        }
+      } else {
+        setState(() => _isSaving = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_botManager.lastError ?? '创建失败'),
+              backgroundColor: AppColors.error(isDark),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// 直接发布（编辑模式下的顶部栏按钮）
+  Future<void> _publishBot(bool isDark) async {
+    if (widget.botId == null) return;
+
+    final success = await _botManager.publishBot(widget.botId!);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? '发布成功' : '发布失败'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
   }
 }

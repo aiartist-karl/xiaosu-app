@@ -17,8 +17,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
   bool _dataSync = true;
   bool _anonymousUsage = true;
 
-  // 模拟缓存大小
-  final String _cacheSize = '128.5 MB';
+  String? _cacheSize;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +59,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           _actionTile(
             icon: Icons.cleaning_services_outlined,
             title: '清除缓存',
-            subtitle: _cacheSize,
+            subtitle: _cacheSize ?? '计算中...',
             isDark: isDark,
             onTap: () => _showClearCacheDialog(isDark),
           ),
@@ -269,7 +268,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
           style: TextStyle(color: AppColors.textPrimary(isDark)),
         ),
         content: Text(
-          '确定要清除 $_cacheSize 的缓存数据吗？',
+          '确定要清除缓存数据吗？',
           style: TextStyle(color: AppColors.textSecondary(isDark)),
         ),
         backgroundColor: AppColors.surface(isDark),

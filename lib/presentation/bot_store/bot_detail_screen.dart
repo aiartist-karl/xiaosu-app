@@ -1,223 +1,25 @@
 // ============================================================================
 // 小酥 v2 - Bot 详情页
+// Phase 2: 对接 Coze Studio Bot API，保留原有 UI 设计风格
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:xiaosu/presentation/theme/app_colors.dart';
-
-/// Bot 详情模型（模拟数据）
-class _BotDetailData {
-  final String id;
-  final String name;
-  final String avatar;
-  final String description;
-  final String author;
-  final double rating;
-  final int ratingCount;
-  final int favoriteCount;
-  final int usageCount;
-  final List<String> features;
-  final List<String> examples;
-  final List<String> tags;
-
-  const _BotDetailData({
-    required this.id,
-    required this.name,
-    required this.avatar,
-    required this.description,
-    required this.author,
-    this.rating = 4.8,
-    this.ratingCount = 128,
-    this.favoriteCount = 562,
-    this.usageCount = 3842,
-    this.features = const [],
-    this.examples = const [],
-    this.tags = const [],
-  });
-}
-
-/// 模拟数据仓库
-class _BotDetailRepository {
-  static const Map<String, _BotDetailData> _data = {
-    '1': _BotDetailData(
-      id: '1',
-      name: '智能写作助手',
-      avatar: '\u{1F4DD}',
-      description: '专业的AI写作助手，擅长撰写各类文案、营销内容、社交媒体帖子。支持多种写作风格，从正式商业文案到轻松有趣的社交媒体内容都能轻松驾驭。',
-      author: '小酥官方',
-      rating: 4.9,
-      ratingCount: 256,
-      favoriteCount: 1024,
-      usageCount: 8920,
-      features: [
-        '支持小红书、公众号、抖音等多种平台风格',
-        '自动生成标题、正文、标签',
-        '内置SEO优化建议',
-        '支持多种写作语气切换',
-        '一键生成多版本文案供选择',
-      ],
-      examples: [
-        '"帮我写一篇小红书探店笔记，主题是周末咖啡探店"',
-        '"生成10条朋友圈文案，主题是秋天穿搭"',
-        '"写一篇公众号文章，介绍AI对教育行业的影响"',
-      ],
-      tags: ['自媒体', '写作', '营销'],
-    ),
-    '2': _BotDetailData(
-      id: '2',
-      name: '投资分析员',
-      avatar: '\u{1F4C8}',
-      description: '智能投资分析助手，提供个股基本面分析、技术面解读、行业趋势研判。帮你做出更理性的投资决策。',
-      author: '小酥官方',
-      rating: 4.7,
-      ratingCount: 189,
-      favoriteCount: 743,
-      usageCount: 5621,
-      features: [
-        '个股基本面深度分析',
-        '技术指标解读（K线、MACD、RSI等）',
-        '行业动态追踪与研判',
-        '财务报表智能解读',
-        '风险评估与仓位建议',
-      ],
-      examples: [
-        '"分析一下宁德时代最近的走势和基本面"',
-        '"帮我看看新能源行业近期的投资机会"',
-        '"解读贵州茅台最新财报"',
-      ],
-      tags: ['金融', '投资', '分析'],
-    ),
-    '3': _BotDetailData(
-      id: '3',
-      name: '法律顾问',
-      avatar: '\u{2696}\u{FE0F}',
-      description: '专业法律咨询助手，覆盖合同法、劳动法、知识产权等常见法律领域。提供法律条文解读、合同审核要点提示、诉讼文书起草建议。',
-      author: '小酥官方',
-      rating: 4.6,
-      ratingCount: 98,
-      favoriteCount: 432,
-      usageCount: 2876,
-      features: [
-        '常见法律问题咨询与解答',
-        '合同条款审核与风险提示',
-        '诉讼文书模板与建议',
-        '劳动法相关问题解答',
-        '知识产权咨询',
-      ],
-      examples: [
-        '"租房合同到期房东不退还押金怎么办？"',
-        '"帮我审核这份劳动合同有没有陷阱"',
-        '"公司拖欠工资，我应该怎么维权？"',
-      ],
-      tags: ['法律', '合同', '咨询'],
-    ),
-    '4': _BotDetailData(
-      id: '4',
-      name: '行业研究员',
-      avatar: '\u{1F50D}',
-      description: '深度行业研究助手，帮你快速完成行业调研、竞品分析、市场洞察。适合产品经理、创业者、投资人使用。',
-      author: '小酥官方',
-      rating: 4.8,
-      ratingCount: 145,
-      favoriteCount: 678,
-      usageCount: 4210,
-      features: [
-        '行业规模与趋势分析',
-        '竞品多维度对比',
-        '用户画像与需求洞察',
-        '商业模式拆解',
-        '自动生成研究报告大纲',
-      ],
-      examples: [
-        '"分析一下中国新能源汽车市场格局"',
-        '"帮我做一份SaaS赛道的竞品分析"',
-        '"调研一下宠物经济的市场规模"',
-      ],
-      tags: ['互联网', '研究', '分析'],
-    ),
-    '5': _BotDetailData(
-      id: '5',
-      name: '论文助手',
-      avatar: '\u{1F393}',
-      description: '学术科研助手，辅助文献检索、论文写作、引用管理。支持多种学科的学术规范。',
-      author: '小酥官方',
-      rating: 4.7,
-      ratingCount: 167,
-      favoriteCount: 892,
-      usageCount: 6543,
-      features: [
-        '学术文献检索与推荐',
-        '论文结构与写作指导',
-        '引用格式自动管理（APA/MLA/GB-T）',
-        '摘要与关键词优化',
-        '查重建议与降重技巧',
-      ],
-      examples: [
-        '"帮我梳理大语言模型在医疗领域的应用综述"',
-        '"优化这段英文摘要的表达"',
-        '"推荐关于强化学习在推荐系统中的参考文献"',
-      ],
-      tags: ['科研', '论文', '学术'],
-    ),
-    '6': _BotDetailData(
-      id: '6',
-      name: '代码专家',
-      avatar: '\u{1F4BB}',
-      description: '全栈代码助手，支持多种编程语言的代码生成、Bug修复、性能优化和架构设计建议。',
-      author: '小酥官方',
-      rating: 4.9,
-      ratingCount: 312,
-      favoriteCount: 1567,
-      usageCount: 12480,
-      features: [
-        '多语言代码生成（Python/JS/Go/Rust等）',
-        'Bug诊断与修复建议',
-        '代码重构与性能优化',
-        '系统架构设计方案',
-        '技术选型对比分析',
-      ],
-      examples: [
-        '"用Python写一个异步爬虫框架"',
-        '"这段React代码为什么性能很差？帮我优化"',
-        '"设计一个高并发订单系统的架构方案"',
-      ],
-      tags: ['互联网', '编程', '开发'],
-    ),
-    '7': _BotDetailData(
-      id: '7',
-      name: '翻译官',
-      avatar: '\u{1F30D}',
-      description: '专业多语言翻译助手，支持中英日韩法德等20+语言互译。针对技术文档、商务邮件、文学作品等不同场景优化翻译质量。',
-      author: '小酥官方',
-      rating: 4.8,
-      ratingCount: 203,
-      favoriteCount: 945,
-      usageCount: 9876,
-      features: [
-        '20+语言高质量互译',
-        '专业领域术语库（技术/医学/法律）',
-        '语境感知翻译优化',
-        '批量翻译与术语一致性检查',
-        '翻译记忆与个人词库',
-      ],
-      examples: [
-        '"把这篇技术博客翻译成英文，保持专业术语准确"',
-        '"这封商务邮件翻译成日文，语气要正式"',
-        '"帮我校对这段中英对照的翻译质量"',
-      ],
-      tags: ['翻译', '多语言', '工具'],
-    ),
-  };
-
-  static _BotDetailData? get(String id) => _data[id];
-}
+import '../../data/models/bot_model.dart';
+import '../../core/bot/bot_manager.dart';
+import '../theme/app_colors.dart';
+import 'bot_editor_screen.dart';
 
 /// Bot 详情页
 class BotDetailScreen extends StatefulWidget {
   final String botId;
+  /// 可选的预加载 Bot 数据（从列表中传入，避免重复请求）
+  final BotModel? preloadBot;
 
-  const BotDetailScreen({super.key, required this.botId});
+  const BotDetailScreen({
+    super.key,
+    required this.botId,
+    this.preloadBot,
+  });
 
   @override
   State<BotDetailScreen> createState() => _BotDetailScreenState();
@@ -225,19 +27,64 @@ class BotDetailScreen extends StatefulWidget {
 
 class _BotDetailScreenState extends State<BotDetailScreen> {
   bool _isFavorited = false;
-  _BotDetailData? _bot;
+  BotModel? _bot;
+  bool _isLoading = true;
+  String? _error;
+
+  final BotManager _botManager = BotManager.instance;
 
   @override
   void initState() {
     super.initState();
-    _bot = _BotDetailRepository.get(widget.botId);
+    _bot = widget.preloadBot;
+    if (_bot != null) {
+      _isLoading = false;
+      // 后台刷新详情
+      _refreshDetail();
+    } else {
+      _loadDetail();
+    }
+  }
+
+  Future<void> _loadDetail() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final bot = await _botManager.getBotDetail(widget.botId);
+    if (mounted) {
+      setState(() {
+        _bot = bot;
+        _isLoading = false;
+        if (bot == null) {
+          _error = _botManager.lastError ?? 'Bot 不存在';
+        }
+      });
+    }
+  }
+
+  Future<void> _refreshDetail() async {
+    final bot = await _botManager.getBotDetail(widget.botId);
+    if (mounted && bot != null) {
+      setState(() => _bot = bot);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bot = _bot;
 
+    // 加载中
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background(isDark),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 错误
+    final bot = _bot;
     if (bot == null) {
       return Scaffold(
         backgroundColor: AppColors.background(isDark),
@@ -246,13 +93,32 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_ios, color: AppColors.textPrimary(isDark)),
-            onPressed: () => context.pop(),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
         body: Center(
-          child: Text(
-            'Bot 不存在',
-            style: TextStyle(color: AppColors.textSecondary(isDark)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: AppColors.textHint(isDark)),
+              const SizedBox(height: 12),
+              Text(
+                _error ?? 'Bot 不存在',
+                style: TextStyle(color: AppColors.textSecondary(isDark)),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: _loadDetail,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary(isDark),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('重试', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -275,11 +141,18 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                   const SizedBox(height: 20),
                   _buildStatsBar(bot, isDark),
                   const SizedBox(height: 24),
-                  _buildSection('功能介绍', bot.features, isDark, icon: Icons.star_outline),
+                  if (bot.prompt != null && bot.prompt!.isNotEmpty)
+                    _buildSection('系统提示词', [bot.prompt!], isDark, icon: Icons.psychology_outlined),
+                  if (bot.prompt != null && bot.prompt!.isNotEmpty)
+                    const SizedBox(height: 20),
+                  if (bot.suggestedQuestions.isNotEmpty)
+                    _buildExamplesSection(bot, isDark),
+                  if (bot.suggestedQuestions.isNotEmpty)
+                    const SizedBox(height: 20),
+                  _buildConfigSection(bot, isDark),
                   const SizedBox(height: 20),
-                  _buildExamplesSection(bot, isDark),
-                  const SizedBox(height: 20),
-                  if (bot.tags.isNotEmpty) _buildTags(bot.tags, isDark),
+                  if (bot.category != null || _buildTags(bot).isNotEmpty)
+                    _buildTagsSection(bot, isDark),
                 ],
               ),
             ),
@@ -300,23 +173,24 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
           children: [
             IconButton(
               icon: Icon(Icons.arrow_back_ios, size: 20, color: AppColors.textPrimary(isDark)),
-              onPressed: () => context.pop(),
+              onPressed: () => Navigator.pop(context),
             ),
             const Spacer(),
             IconButton(
-              icon: Icon(Icons.share_outlined, size: 22, color: AppColors.textSecondary(isDark)),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('分享功能开发中'), duration: Duration(seconds: 1)),
+              icon: Icon(Icons.edit_outlined, size: 22, color: AppColors.textSecondary(isDark)),
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BotEditorScreen(botId: widget.botId, preloadBot: _bot),
+                  ),
                 );
+                _refreshDetail();
               },
             ),
             IconButton(
               icon: Icon(Icons.more_horiz, size: 22, color: AppColors.textSecondary(isDark)),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('更多功能开发中'), duration: Duration(seconds: 1)),
-                );
+                _showMoreActions();
               },
             ),
           ],
@@ -325,11 +199,12 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     );
   }
 
-  Widget _buildHeader(_BotDetailData bot, bool isDark) {
+  Widget _buildHeader(BotModel bot, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
+          // 头像
           Container(
             width: 88,
             height: 88,
@@ -344,14 +219,30 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
                 ),
               ],
             ),
-            child: Center(
-              child: Text(
-                bot.avatar,
-                style: const TextStyle(fontSize: 40),
-              ),
-            ),
+            child: bot.iconUri != null
+                ? ClipOval(
+                    child: Image.network(
+                      bot.iconUri!,
+                      width: 88,
+                      height: 88,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Center(
+                        child: Text(
+                          _getAvatarEmoji(bot.name),
+                          style: const TextStyle(fontSize: 40),
+                        ),
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      _getAvatarEmoji(bot.name),
+                      style: const TextStyle(fontSize: 40),
+                    ),
+                  ),
           ),
           const SizedBox(height: 16),
+          // 名称
           Text(
             bot.name,
             style: TextStyle(
@@ -361,29 +252,44 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            'by ${bot.author}',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary(isDark),
+          // 状态标签
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: bot.status == BotStatus.published
+                  ? AppColors.success(isDark).withOpacity(0.12)
+                  : AppColors.warning(isDark).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              bot.status.label,
+              style: TextStyle(
+                fontSize: 12,
+                color: bot.status == BotStatus.published
+                    ? AppColors.success(isDark)
+                    : AppColors.warning(isDark),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            bot.description,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary(isDark),
-              height: 1.6,
+          // 描述
+          if (bot.description.isNotEmpty)
+            Text(
+              bot.description,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary(isDark),
+                height: 1.6,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsBar(_BotDetailData bot, bool isDark) {
+  Widget _buildStatsBar(BotModel bot, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
@@ -398,15 +304,15 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
             _buildStatItem(
               icon: Icons.star_rounded,
               iconColor: const Color(0xFFFFB800),
-              value: bot.rating.toStringAsFixed(1),
-              label: '${bot.ratingCount} 评价',
+              value: bot.rating?.toStringAsFixed(1) ?? '--',
+              label: '评分',
               isDark: isDark,
             ),
             Container(width: 0.5, height: 32, color: AppColors.divider(isDark)),
             _buildStatItem(
               icon: Icons.favorite_rounded,
               iconColor: AppColors.error(isDark),
-              value: _formatCount(bot.favoriteCount),
+              value: _isFavorited ? '已收藏' : '未收藏',
               label: '收藏',
               isDark: isDark,
             ),
@@ -414,7 +320,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
             _buildStatItem(
               icon: Icons.play_circle_outline,
               iconColor: AppColors.primary(isDark),
-              value: _formatCount(bot.usageCount),
+              value: bot.usageCount != null ? _formatCount(bot.usageCount!) : '--',
               label: '使用',
               isDark: isDark,
             ),
@@ -439,12 +345,15 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
             children: [
               Icon(icon, size: 16, color: iconColor),
               const SizedBox(width: 4),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary(isDark),
+              Flexible(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary(isDark),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -519,8 +428,8 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     );
   }
 
-  Widget _buildExamplesSection(_BotDetailData bot, bool isDark) {
-    if (bot.examples.isEmpty) return const SizedBox.shrink();
+  Widget _buildExamplesSection(BotModel bot, bool isDark) {
+    if (bot.suggestedQuestions.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -541,7 +450,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          ...bot.examples.map((example) => Padding(
+          ...bot.suggestedQuestions.map((example) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Container(
               width: double.infinity,
@@ -566,7 +475,108 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     );
   }
 
-  Widget _buildTags(List<String> tags, bool isDark) {
+  Widget _buildConfigSection(BotModel bot, bool isDark) {
+    final hasConfig = bot.pluginIds.isNotEmpty ||
+        bot.knowledgeIds.isNotEmpty ||
+        bot.modelInfo != null;
+    if (!hasConfig) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.settings_outlined, size: 18, color: AppColors.textSecondary(isDark)),
+              const SizedBox(width: 6),
+              Text(
+                '配置信息',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary(isDark),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface(isDark),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider(isDark), width: 0.5),
+            ),
+            child: Column(
+              children: [
+                if (bot.modelInfo != null)
+                  _buildConfigRow(isDark, '模型',
+                      bot.modelInfo!['model_name']?.toString() ?? bot.modelInfo!['model_id']?.toString() ?? '默认'),
+                if (bot.pluginIds.isNotEmpty)
+                  _buildConfigRow(isDark, '插件', '${bot.pluginIds.length} 个'),
+                if (bot.knowledgeIds.isNotEmpty)
+                  _buildConfigRow(isDark, '知识库', '${bot.knowledgeIds.length} 个'),
+                if (bot.onboardingPrompt != null)
+                  _buildConfigRow(isDark, '开场白', bot.onboardingPrompt!.length > 30
+                      ? '${bot.onboardingPrompt!.substring(0, 30)}...'
+                      : bot.onboardingPrompt!),
+                _buildConfigRow(isDark, '创建时间',
+                    bot.createdAt != null
+                        ? '${bot.createdAt!.year}-${bot.createdAt!.month.toString().padLeft(2, '0')}-${bot.createdAt!.day.toString().padLeft(2, '0')}'
+                        : '未知'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfigRow(bool isDark, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textHint(isDark),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary(isDark),
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _buildTags(BotModel bot) {
+    final tags = <String>[];
+    if (bot.category != null) tags.add(bot.category!);
+    if (bot.status == BotStatus.published) tags.add('已发布');
+    if (bot.pluginIds.isNotEmpty) tags.add('有插件');
+    if (bot.knowledgeIds.isNotEmpty) tags.add('有知识库');
+    return tags;
+  }
+
+  Widget _buildTagsSection(BotModel bot, bool isDark) {
+    final tags = _buildTags(bot);
+    if (tags.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Wrap(
@@ -591,7 +601,7 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
     );
   }
 
-  Widget _buildBottomBar(_BotDetailData bot, bool isDark) {
+  Widget _buildBottomBar(BotModel bot, bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
       decoration: BoxDecoration(
@@ -621,22 +631,30 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
               },
             ),
             const SizedBox(width: 12),
-            _buildActionButton(
-              isDark: isDark,
-              icon: Icons.share_outlined,
-              label: '分享',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('分享功能开发中'), duration: Duration(seconds: 1)),
-                );
-              },
-            ),
+            if (bot.isOwned) ...[
+              const SizedBox(width: 12),
+              _buildActionButton(
+                isDark: isDark,
+                icon: Icons.edit_outlined,
+                label: '编辑',
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BotEditorScreen(botId: widget.botId, preloadBot: _bot),
+                    ),
+                  );
+                  _refreshDetail();
+                },
+              ),
+            ],
             const SizedBox(width: 16),
             Expanded(
               flex: 2,
               child: GestureDetector(
                 onTap: () {
-                  context.push('/chat-new', extra: {'botName': bot.name});
+                  // 开始对话 - 切换到当前 Bot
+                  _botManager.setCurrentBot(bot);
+                  Navigator.pop(context, bot);
                 },
                 child: Container(
                   height: 48,
@@ -699,6 +717,125 @@ class _BotDetailScreenState extends State<BotDetailScreen> {
         ],
       ),
     );
+  }
+
+  void _showMoreActions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.refresh),
+              title: const Text('刷新详情'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _refreshDetail();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('复制 Bot'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final duplicated = await _botManager.duplicateBot(
+                  widget.botId,
+                  targetName: '${_bot?.name ?? ''} (副本)',
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(duplicated != null ? '复制成功' : '复制失败'),
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.publish_outlined),
+              title: const Text('发布'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final success = await _botManager.publishBot(widget.botId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success ? '发布成功' : '发布失败'),
+                    ),
+                  );
+                  if (success) _refreshDetail();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('删除', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                _confirmDelete();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        title: Text('确认删除', style: TextStyle(color: AppColors.textPrimary(isDark))),
+        content: Text(
+          '确定要删除 Bot「${_bot?.name ?? ''}」吗？此操作不可恢复。',
+          style: TextStyle(color: AppColors.textSecondary(isDark)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await _botManager.deleteBot(widget.botId);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(success ? '已删除' : '删除失败')),
+                );
+                if (success) Navigator.pop(context);
+              }
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 根据 Bot 名称生成一个 emoji 头像
+  String _getAvatarEmoji(String name) {
+    if (name.isEmpty) return '🤖';
+    final lower = name.toLowerCase();
+    if (lower.contains('写') || lower.contains('文案')) return '📝';
+    if (lower.contains('投资') || lower.contains('金融') || lower.contains('股票')) return '📈';
+    if (lower.contains('法律') || lower.contains('合同')) return '⚖️';
+    if (lower.contains('研究') || lower.contains('分析')) return '🔍';
+    if (lower.contains('论文') || lower.contains('学术')) return '🎓';
+    if (lower.contains('代码') || lower.contains('编程') || lower.contains('开发')) return '💻';
+    if (lower.contains('翻译')) return '🌍';
+    if (lower.contains('音乐')) return '🎵';
+    if (lower.contains('画') || lower.contains('绘')) return '🎨';
+    if (lower.contains('健康') || lower.contains('运动')) return '🏋️';
+    return '🤖';
   }
 
   String _formatCount(int count) {

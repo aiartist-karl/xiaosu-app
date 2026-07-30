@@ -1,6 +1,7 @@
 // ============================================================================
 // 小酥 v2 - App Widget 定义
-// 路由：4 Tab（首页/Bot商店/工作台/我的）+ 子页面（聊天/Bot详情/设置等）
+// Phase 2: 添加登录页面和认证检查
+// 路由：登录页 + 4 Tab（首页/Bot商店/工作台/我的）+ 子页面（聊天/Bot详情/设置等）
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:xiaosu/ui/theme/app_theme.dart';
 import 'package:xiaosu/ui/pages/error_page.dart';
+
+// ─── 登录页 ──────────────────────────────────────────────────
+import 'package:xiaosu/presentation/auth/login_screen.dart';
 
 // ─── Shell 布局 ─────────────────────────────────────────────
 import 'package:xiaosu/presentation/shell/shell_screen.dart';
@@ -39,6 +43,20 @@ import 'package:xiaosu/presentation/profile/about_screen.dart';
 import 'package:xiaosu/presentation/profile/privacy_screen.dart';
 import 'package:xiaosu/presentation/profile/notification_screen.dart';
 
+// ─── 新增功能页面 ─────────────────────────────────────────────
+import 'package:xiaosu/presentation/workflow/workflow_list_screen.dart';
+import 'package:xiaosu/presentation/workflow/workflow_detail_screen.dart';
+import 'package:xiaosu/presentation/plugin/plugin_market_screen.dart';
+import 'package:xiaosu/presentation/plugin/plugin_detail_screen.dart';
+import 'package:xiaosu/presentation/knowledge/knowledge_list_screen.dart';
+import 'package:xiaosu/presentation/knowledge/knowledge_detail_screen.dart';
+import 'package:xiaosu/presentation/token/token_balance_screen.dart';
+import 'package:xiaosu/presentation/settings/api_config_screen.dart';
+import 'package:xiaosu/presentation/file/file_list_screen.dart';
+
+// ─── 认证管理 ─────────────────────────────────────────────────
+import 'core/gateway/api_gateway.dart';
+
 /// ============================================================================
 // 小酥 APP 根 Widget
 /// ============================================================================
@@ -68,11 +86,37 @@ class XiaoSuApp extends ConsumerWidget {
   GoRouter _buildRouter() {
     return GoRouter(
       initialLocation: '/',
+      redirect: (context, state) {
+        // 检查是否需要登录
+        final isLoggedIn = ApiGateway.instance.isAuthenticated;
+        final isOnLoginPage = state.uri.path == '/login';
+        
+        // 如果未登录且不在登录页，跳转到登录页
+        if (!isLoggedIn && !isOnLoginPage) {
+          return '/login';
+        }
+        
+        // 如果已登录且在登录页，跳转到主页
+        if (isLoggedIn && isOnLoginPage) {
+          return '/';
+        }
+        
+        // 其他情况不重定向
+        return null;
+      },
+      refreshListenable: GoRouterRefreshStream(),
       errorBuilder: (context, state) => ErrorPage(
         error: state.error,
         path: state.uri.toString(),
       ),
       routes: [
+        // ===== 登录页 =====
+        GoRoute(
+          path: '/login',
+          name: 'login',
+          builder: (context, state) => const LoginScreen(),
+        ),
+        
         // ===== ShellRoute：底部 4 Tab =====
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
@@ -243,6 +287,76 @@ class XiaoSuApp extends ConsumerWidget {
           name: 'workbench-memory',
           builder: (context, state) => const MemoryScreen(),
         ),
+
+        // ===== 新增功能页面 =====
+
+        // 工作流列表
+        GoRoute(
+          path: '/workflows',
+          name: 'workflow-list',
+          builder: (context, state) => const WorkflowListScreen(),
+        ),
+        // 工作流详情
+        GoRoute(
+          path: '/workflows/detail',
+          name: 'workflow-detail',
+          builder: (context, state) {
+            final workflowId = state.uri.queryParameters['workflowId'] ?? '';
+            return WorkflowDetailScreen(workflowId: workflowId);
+          },
+        ),
+        // 插件市场
+        GoRoute(
+          path: '/plugin-market',
+          name: 'plugin-market',
+          builder: (context, state) => const PluginMarketScreen(),
+        ),
+        // 插件详情
+        GoRoute(
+          path: '/plugin-market/detail',
+          name: 'plugin-detail',
+          builder: (context, state) {
+            final pluginId = state.uri.queryParameters['pluginId'] ?? '';
+            return PluginDetailScreen(pluginId: pluginId);
+          },
+        ),
+        // 知识库列表
+        GoRoute(
+          path: '/knowledge',
+          name: 'knowledge-list',
+          builder: (context, state) => const KnowledgeListScreen(),
+        ),
+        // 知识库详情
+        GoRoute(
+          path: '/knowledge/detail',
+          name: 'knowledge-detail',
+          builder: (context, state) {
+            final datasetId = state.uri.queryParameters['datasetId'] ?? '';
+            final datasetName = state.uri.queryParameters['datasetName'] ?? '知识库';
+            return KnowledgeDetailScreen(
+              datasetId: datasetId,
+              datasetName: datasetName,
+            );
+          },
+        ),
+        // Token 余额
+        GoRoute(
+          path: '/token-balance',
+          name: 'token-balance',
+          builder: (context, state) => const TokenBalanceScreen(),
+        ),
+        // API 配置
+        GoRoute(
+          path: '/api-config',
+          name: 'api-config',
+          builder: (context, state) => const ApiConfigScreen(),
+        ),
+        // Coze 文件管理
+        GoRoute(
+          path: '/coze-files',
+          name: 'coze-files',
+          builder: (context, state) => const FileListScreen(),
+        ),
       ],
     );
   }
@@ -250,3 +364,15 @@ class XiaoSuApp extends ConsumerWidget {
 
 /// 主题模式 Provider
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
+
+/// GoRouter 刷新流 - 用于监听认证状态变化
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream() {
+    // 定时检查认证状态变化（简单实现）
+    // 实际项目中可以使用 ChangeNotifier 或 Riverpod 监听
+  }
+
+  void refresh() {
+    notifyListeners();
+  }
+}

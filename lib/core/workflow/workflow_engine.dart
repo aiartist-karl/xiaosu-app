@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import '../../data/models/workflow_model.dart' as coze;
+import '../../data/repositories/workflow_repository.dart';
+import 'coze_workflow_executor.dart';
 
 /// ============================================================
 /// Workflow Engine — 自动化工作流引擎
+/// Phase 4: 扩展 Coze Studio 工作流 API 对接能力
 /// ============================================================
 
 // ─── 枚举 ───────────────────────────────────────────────────
@@ -1024,4 +1028,383 @@ class WorkflowEngine {
   String _genId(String p) =>
       '${p}_${DateTime.now().millisecondsSinceEpoch}_${_random.nextInt(9999)}';
   void _log(String msg) => onLog?.call(msg);
+
+  // ═══ Phase 4: Coze Studio 工作流 API 对接 ═══════════════════
+
+  /// Coze Studio 工作流执行器（延迟初始化）
+  CozeWorkflowExecutor? _cozeExecutor;
+  WorkflowRepository? _cozeRepository;
+
+  /// Coze Studio 执行器
+  CozeWorkflowExecutor get cozeExecutor {
+    _cozeExecutor ??= CozeWorkflowExecutor(
+      repository: cozeRepository,
+      onNodeStatusChanged: (nodeId, status) {
+        _log('[Coze] 节点 $nodeId 状态: ${status.value}');
+      },
+      onExecutionChanged: (record) {
+        _log('[Coze] 执行完成: ${record.runId}, 状态: ${record.status.value}');
+      },
+      onLog: onLog,
+    );
+    return _cozeExecutor!;
+  }
+
+  /// Coze Studio 工作流仓库
+  WorkflowRepository get cozeRepository {
+    _cozeRepository ??= WorkflowRepository();
+    return _cozeRepository!;
+  }
+
+  /// 注入自定义的 CozeWorkflowExecutor（用于测试或扩展）
+  void setCozeExecutor(CozeWorkflowExecutor executor) {
+    _cozeExecutor = executor;
+  }
+
+  /// 注入自定义的 WorkflowRepository（用于测试或扩展）
+  void setCozeRepository(WorkflowRepository repository) {
+    _cozeRepository = repository;
+    _cozeExecutor = null; // 重置执行器以使用新仓库
+  }
+
+  // ─── Coze Studio 远程工作流运行 ────────────────────────────
+
+  /// 在 Coze Studio 上同步运行工作流
+  ///
+  /// 调用 POST /v1/workflow/run
+  /// [workflowId] Coze Studio 中的工作流 ID
+  /// [parameters] 运行参数
+  Future<coze.CozeWorkflowRunRecord> runOnCozeStudio({
+    required String workflowId,
+    Map<String, dynamic> parameters = const {},
+    String? botId,
+    String? conversationId,
+  }) async {
+    _log('在 Coze Studio 上运行工作流: $workflowId');
+    return cozeExecutor.executeSync(
+      workflowId: workflowId,
+      parameters: parameters,
+      botId: botId,
+      conversationId: conversationId,
+    );
+  }
+
+  /// 在 Coze Studio 上流式运行工作流
+  ///
+  /// 调用 POST /v1/workflow/stream_run
+  /// 返回 SSE 流式结果
+  Future<CozeStreamExecutionResult> runOnCozeStudioStream({
+    required String workflowId,
+    Map<String, dynamic> parameters = const {},
+    String? botId,
+    String? conversationId,
+  }) async {
+    _log('在 Coze Studio 上流式运行工作流: $workflowId');
+    return cozeExecutor.executeStream(
+      workflowId: workflowId,
+      parameters: parameters,
+      botId: botId,
+      conversationId: conversationId,
+    );
+  }
+
+  /// 恢复 Coze Studio 流式工作流执行
+  Future<CozeStreamExecutionResult> resumeOnCozeStudio({
+    required String workflowId,
+    required String runId,
+    Map<String, dynamic> resumeData = const {},
+  }) async {
+    _log('恢复 Coze Studio 工作流: $workflowId, runId=$runId');
+    return cozeExecutor.resumeStream(
+      workflowId: workflowId,
+      runId: runId,
+      resumeData: resumeData,
+    );
+  }
+
+  /// 调试模式运行（Coze Studio）
+  ///
+  /// 调用 POST /api/workflow_api/test_run
+  Future<coze.CozeWorkflowRunRecord> debugOnCozeStudio({
+    required String workflowId,
+    Map<String, dynamic> parameters = const {},
+    String? nodeId,
+  }) async {
+    _log('在 Coze Studio 上调试运行: $workflowId');
+    return cozeExecutor.debugRun(
+      workflowId: workflowId,
+      parameters: parameters,
+      nodeId: nodeId,
+    );
+  }
+
+  /// 单节点调试（Coze Studio）
+  ///
+  /// 调用 POST /api/workflow_api/nodeDebug
+  Future<CozeNodeDebugResult> debugNodeOnCozeStudio({
+    required String workflowId,
+    required String nodeId,
+    Map<String, dynamic> inputData = const {},
+  }) async {
+    _log('在 Coze Studio 上调试节点: $workflowId / $nodeId');
+    return cozeExecutor.debugNode(
+      workflowId: workflowId,
+      nodeId: nodeId,
+      inputData: inputData,
+    );
+  }
+
+  /// 聊天流方式运行工作流（Coze Studio）
+  Future<CozeStreamExecutionResult> chatOnCozeStudio({
+    required String workflowId,
+    required List<Map<String, dynamic>> messages,
+    String? conversationId,
+  }) async {
+    _log('在 Coze Studio 上聊天运行: $workflowId');
+    return cozeExecutor.executeChat(
+      workflowId: workflowId,
+      messages: messages,
+      conversationId: conversationId,
+    );
+  }
+
+  // ─── Coze Studio 远程工作流 CRUD ───────────────────────────
+
+  /// 从 Coze Studio 获取工作流列表
+  Future<List<coze.CozeWorkflowSummary>> fetchCozeWorkflowList({
+    String? keyword,
+    int page = 0,
+    int pageSize = 20,
+  }) async {
+    _log('从 Coze Studio 获取工作流列表');
+    final response = await cozeRepository.fetchWorkflowList(
+      keyword: keyword,
+      page: page,
+      pageSize: pageSize,
+    );
+    return response.success ? (response.data ?? []) : [];
+  }
+
+  /// 从 Coze Studio 获取工作流详情（含画布）
+  Future<coze.CozeWorkflowDetail?> fetchCozeWorkflowDetail(
+    String workflowId,
+  ) async {
+    _log('从 Coze Studio 获取工作流详情: $workflowId');
+    final response = await cozeRepository.fetchWorkflowDetailInternal(workflowId);
+    return response.success ? response.data : null;
+  }
+
+  /// 在 Coze Studio 上创建工作流
+  Future<coze.CozeWorkflowSummary?> createCozeWorkflow({
+    required String name,
+    String description = '',
+  }) async {
+    _log('在 Coze Studio 上创建工作流: $name');
+    final response = await cozeRepository.createWorkflow(
+      name: name,
+      description: description,
+    );
+    return response.success ? response.data : null;
+  }
+
+  /// 将本地工作流同步保存到 Coze Studio
+  ///
+  /// 将本地 Workflow 模型的节点和边转换为 Coze Studio 格式后上传
+  Future<bool> syncToCozeStudio(String localWorkflowId) async {
+    final wf = _workflows[localWorkflowId];
+    if (wf == null) {
+      _log('[Coze] 本地工作流不存在: $localWorkflowId');
+      return false;
+    }
+
+    _log('同步工作流到 Coze Studio: ${wf.name}');
+
+    // 转换本地节点为 Coze 格式
+    final cozeNodes = wf.nodes.map((n) {
+      return {
+        'node_id': n.id,
+        'node_type': _mapLocalNodeTypeToCoze(n.type),
+        'name': n.label ?? n.id,
+        'config': n.config,
+        'x': n.x,
+        'y': n.y,
+      };
+    }).toList();
+
+    // 转换本地边为 Coze 格式
+    final cozeEdges = wf.edges.map((e) {
+      return {
+        'source_node_id': e.source,
+        'target_node_id': e.target,
+        if (e.condition != null) 'condition': e.condition,
+      };
+    }).toList();
+
+    final response = await cozeRepository.saveWorkflowCanvas(
+      workflowId: wf.id,
+      nodes: cozeNodes,
+      edges: cozeEdges,
+      variables: {
+        for (final v in wf.variables) v.name: {'type': v.type.value, 'value': v.value}
+      },
+    );
+
+    if (response.success) {
+      _log('同步成功: ${wf.name}');
+    } else {
+      _log('同步失败: ${response.error}');
+    }
+
+    return response.success;
+  }
+
+  /// 将本地节点类型映射到 Coze Studio 节点类型名称
+  String _mapLocalNodeTypeToCoze(WorkflowNodeType local) {
+    switch (local) {
+      case WorkflowNodeType.triggerManual:
+      case WorkflowNodeType.triggerSchedule:
+      case WorkflowNodeType.triggerWebhook:
+      case WorkflowNodeType.triggerEvent:
+        return 'Entry';
+      case WorkflowNodeType.actionLlm:
+        return 'LLM';
+      case WorkflowNodeType.actionSkill:
+        return 'Plugin';
+      case WorkflowNodeType.actionApi:
+        return 'HTTPRequester';
+      case WorkflowNodeType.actionCode:
+        return 'CodeRunner';
+      case WorkflowNodeType.actionCondition:
+        return 'Selector';
+      case WorkflowNodeType.actionLoop:
+        return 'Loop';
+      case WorkflowNodeType.actionParallel:
+        return 'Batch';
+      case WorkflowNodeType.actionDelay:
+        return 'Lambda';
+      case WorkflowNodeType.actionTransform:
+        return 'VariableAssigner';
+      case WorkflowNodeType.actionNotification:
+        return 'OutputEmitter';
+      case WorkflowNodeType.terminator:
+        return 'Exit';
+    }
+  }
+
+  /// 从 Coze Studio 导入工作流到本地引擎
+  ///
+  /// 将 Coze Studio 工作流详情转换为本地 Workflow 模型
+  Workflow importFromCozeStudio(coze.CozeWorkflowDetail detail) {
+    _log('从 Coze Studio 导入工作流: ${detail.name}');
+
+    // 转换 Coze 节点为本地节点
+    final localNodes = detail.nodes.map((cn) {
+      return WorkflowNode(
+        id: cn.id,
+        type: _mapCozeNodeTypeToLocal(cn.type),
+        config: cn.config,
+        x: cn.x,
+        y: cn.y,
+        label: cn.name,
+      );
+    }).toList();
+
+    // 转换 Coze 边为本地边
+    final localEdges = detail.edges.map((ce) {
+      return WorkflowEdge(
+        source: ce.sourceNodeId,
+        target: ce.targetNodeId,
+        condition: ce.condition,
+      );
+    }).toList();
+
+    final workflow = Workflow(
+      id: detail.id,
+      name: detail.name,
+      description: detail.description,
+      nodes: localNodes,
+      edges: localEdges,
+      metadata: {
+        'source': 'coze_studio',
+        'space_id': detail.spaceId,
+        'version': detail.version,
+        'is_published': detail.isPublished,
+      },
+    );
+
+    _workflows[workflow.id] = workflow;
+    _log('导入成功: ${workflow.name}（${localNodes.length} 节点, ${localEdges.length} 边）');
+    return workflow;
+  }
+
+  /// 将 Coze Studio 节点类型映射到本地节点类型
+  WorkflowNodeType _mapCozeNodeTypeToLocal(coze.CozeWorkflowNodeType cozeType) {
+    switch (cozeType) {
+      case coze.CozeWorkflowNodeType.entry:
+        return WorkflowNodeType.triggerManual;
+      case coze.CozeWorkflowNodeType.exit:
+        return WorkflowNodeType.terminator;
+      case coze.CozeWorkflowNodeType.llm:
+        return WorkflowNodeType.actionLlm;
+      case coze.CozeWorkflowNodeType.plugin:
+        return WorkflowNodeType.actionSkill;
+      case coze.CozeWorkflowNodeType.codeRunner:
+        return WorkflowNodeType.actionCode;
+      case coze.CozeWorkflowNodeType.httpRequester:
+        return WorkflowNodeType.actionApi;
+      case coze.CozeWorkflowNodeType.selector:
+        return WorkflowNodeType.actionCondition;
+      case coze.CozeWorkflowNodeType.loop:
+      case coze.CozeWorkflowNodeType.batch:
+        return WorkflowNodeType.actionLoop;
+      case coze.CozeWorkflowNodeType.variableAssigner:
+      case coze.CozeWorkflowNodeType.variableAssignerWithinLoop:
+      case coze.CozeWorkflowNodeType.variableAggregator:
+        return WorkflowNodeType.actionTransform;
+      case coze.CozeWorkflowNodeType.outputEmitter:
+        return WorkflowNodeType.actionNotification;
+      case coze.CozeWorkflowNodeType.lambda:
+        return WorkflowNodeType.actionDelay;
+      default:
+        // 其他 Coze 节点类型（数据库、知识库、对话操作等）映射为通用代码节点
+        return WorkflowNodeType.actionCode;
+    }
+  }
+
+  // ─── Coze Studio 运行历史 ──────────────────────────────────
+
+  /// 获取 Coze Studio 工作流运行历史
+  Future<List<coze.CozeWorkflowRunRecord>> getCozeRunHistory(
+    String workflowId, {
+    int page = 0,
+    int pageSize = 20,
+  }) async {
+    return cozeExecutor.getRunHistory(
+      workflowId,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
+
+  /// 获取 Coze Studio 执行过程详情
+  Future<List<coze.CozeNodeExecutionDetail>> getCozeExecutionProcess({
+    required String workflowId,
+    required String runId,
+  }) async {
+    return cozeExecutor.getExecutionProcess(
+      workflowId: workflowId,
+      runId: runId,
+    );
+  }
+
+  /// 取消 Coze Studio 上正在执行的工作流
+  Future<bool> cancelCozeExecution({
+    required String workflowId,
+    required String runId,
+  }) async {
+    return cozeExecutor.cancelExecution(
+      workflowId: workflowId,
+      runId: runId,
+    );
+  }
 }

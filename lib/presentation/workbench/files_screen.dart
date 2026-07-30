@@ -1,8 +1,11 @@
 // ============================================================================
 // 小酥 v2 - 文件管理页
+// Phase 3: 对接真实API，移除假数据
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../../data/repositories/file_repository.dart';
+import '../../data/models/file_model.dart';
 import '../theme/app_colors.dart';
 
 /// 文件管理页面
@@ -14,63 +17,60 @@ class FilesScreen extends StatefulWidget {
 }
 
 class _FilesScreenState extends State<FilesScreen> {
+  final FileRepository _fileRepo = FileRepository();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   _FileSortOption _sortOption = _FileSortOption.date;
 
-  // 模拟文件数据
-  final List<_FileItem> _files = [
-    _FileItem(
-      name: '项目方案.pdf',
-      size: 2.4 * 1024 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(hours: 1)),
-      type: FileType.pdf,
-    ),
-    _FileItem(
-      name: '数据分析报告.xlsx',
-      size: 1.8 * 1024 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(hours: 5)),
-      type: FileType.excel,
-    ),
-    _FileItem(
-      name: '会议纪要.md',
-      size: 12 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(days: 1)),
-      type: FileType.text,
-    ),
-    _FileItem(
-      name: 'UI设计稿_v3.png',
-      size: 5.6 * 1024 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(days: 2)),
-      type: FileType.image,
-    ),
-    _FileItem(
-      name: '产品需求文档.docx',
-      size: 860 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(days: 3)),
-      type: FileType.word,
-    ),
-    _FileItem(
-      name: '演示文稿.pptx',
-      size: 8.2 * 1024 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(days: 5)),
-      type: FileType.ppt,
-    ),
-    _FileItem(
-      name: '系统架构图.svg',
-      size: 340 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(days: 7)),
-      type: FileType.image,
-    ),
-    _FileItem(
-      name: 'README.txt',
-      size: 4 * 1024,
-      modifiedTime: DateTime.now().subtract(const Duration(days: 10)),
-      type: FileType.text,
-    ),
-  ];
+  List<CozeFile> _files = [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  String? _errorMessage;
 
-  List<_FileItem> get _filteredFiles {
+  @override
+  void initState() {
+    super.initState();
+    _loadFiles();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFiles() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _fileRepo.fetchFileList();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (result.success && result.data != null) {
+            _files = result.data!;
+          } else {
+            _hasError = true;
+            _errorMessage = result.error ?? '获取文件列表失败';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+          _errorMessage = '加载异常: ${e.toString()}';
+        });
+      }
+    }
+  }
+
+  List<CozeFile> get _filteredFiles {
     var list = _files.where((f) {
       if (_searchQuery.isEmpty) return true;
       return f.name.toLowerCase().contains(_searchQuery.toLowerCase());
@@ -81,19 +81,13 @@ class _FilesScreenState extends State<FilesScreen> {
         list.sort((a, b) => a.name.compareTo(b.name));
         break;
       case _FileSortOption.date:
-        list.sort((a, b) => b.modifiedTime.compareTo(a.modifiedTime));
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case _FileSortOption.size:
         list.sort((a, b) => b.size.compareTo(a.size));
         break;
     }
     return list;
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   @override
@@ -177,58 +171,142 @@ class _FilesScreenState extends State<FilesScreen> {
             ),
           ),
           // 文件列表
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filteredFiles.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                color: AppColors.divider(isDark),
-              ),
-              itemBuilder: (context, index) {
-                final file = _filteredFiles[index];
-                return _FileListTile(file: file, isDark: isDark);
-              },
-            ),
-          ),
+          Expanded(child: _buildFileList(isDark)),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: 上传文件
-        },
-        backgroundColor: AppColors.primary(isDark),
-        child: const Icon(Icons.upload_file, color: Colors.white),
+    );
+  }
+
+  Widget _buildFileList(bool isDark) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: AppColors.textHint(isDark)),
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage ?? '加载失败',
+              style: TextStyle(color: AppColors.textSecondary(isDark)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: _loadFiles,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary(isDark),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('重试', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final list = _filteredFiles;
+    if (list.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.folder_open, size: 48, color: AppColors.textHint(isDark)),
+            const SizedBox(height: 12),
+            Text(
+              _searchQuery.isNotEmpty ? '没有找到匹配的文件' : '暂无文件',
+              style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: list.length,
+      separatorBuilder: (_, __) => Divider(
+        height: 1,
+        color: AppColors.divider(isDark),
       ),
+      itemBuilder: (context, index) {
+        final file = list[index];
+        return _CozeFileListTile(file: file, isDark: isDark);
+      },
     );
   }
 }
 
-// ─── 文件列表项 Widget ──────────────────────────────────────────
-class _FileListTile extends StatelessWidget {
-  final _FileItem file;
+// ─── CozeFile 列表项 Widget ──────────────────────────────────────
+class _CozeFileListTile extends StatelessWidget {
+  final CozeFile file;
   final bool isDark;
 
-  const _FileListTile({required this.file, required this.isDark});
+  const _CozeFileListTile({required this.file, required this.isDark});
+
+  IconData _fileIcon() {
+    final mime = file.mimeType.toLowerCase();
+    final name = file.name.toLowerCase();
+    if (mime.contains('pdf') || name.endsWith('.pdf')) return Icons.picture_as_pdf;
+    if (mime.contains('excel') || mime.contains('spreadsheet') || name.endsWith('.xlsx') || name.endsWith('.xls')) return Icons.table_chart;
+    if (mime.contains('word') || mime.contains('document') || name.endsWith('.docx') || name.endsWith('.doc')) return Icons.description;
+    if (mime.contains('image') || name.endsWith('.png') || name.endsWith('.jpg')) return Icons.image;
+    if (mime.contains('presentation') || name.endsWith('.pptx')) return Icons.slideshow;
+    if (mime.contains('text') || name.endsWith('.md') || name.endsWith('.txt')) return Icons.article;
+    return Icons.insert_drive_file;
+  }
+
+  Color _fileColor() {
+    final icon = _fileIcon();
+    if (icon == Icons.picture_as_pdf) return Colors.red;
+    if (icon == Icons.table_chart) return Colors.green;
+    if (icon == Icons.image) return Colors.purple;
+    if (icon == Icons.slideshow) return Colors.orange;
+    return AppColors.info(isDark);
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  String _formatTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return '刚刚';
+    if (diff.inHours < 1) return '${diff.inMinutes}分钟前';
+    if (diff.inDays == 0) return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    if (diff.inDays == 1) return '昨天';
+    if (diff.inDays < 7) return '${diff.inDays}天前';
+    return '${dt.month}/${dt.day}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final icon = _fileIcon();
+    final color = _fileColor();
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          // 文件类型图标
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: file.type.color(isDark).withOpacity(0.12),
+              color: color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(file.type.icon, color: file.type.color(isDark), size: 22),
+            child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),
-          // 文件信息
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,23 +325,15 @@ class _FileListTile extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      file.sizeString,
+                      _formatSize(file.size),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary(isDark),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Text(
-                      '·',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textHint(isDark),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      file.timeString,
+                      _formatTime(file.createdAt),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textHint(isDark),
@@ -274,87 +344,18 @@ class _FileListTile extends StatelessWidget {
               ],
             ),
           ),
-          // 更多按钮
-          IconButton(
-            onPressed: () {},
-            icon: Icon(
-              Icons.more_vert,
-              color: AppColors.textHint(isDark),
-              size: 20,
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-// ─── 排序选项 ──────────────────────────────────────────────────
+// ─── 排序选项 ────────────────────────────────────────────────────
 enum _FileSortOption {
-  name('名称'),
-  date('日期'),
-  size('大小');
+  date('按时间'),
+  name('按名称'),
+  size('按大小');
 
   final String label;
   const _FileSortOption(this.label);
-}
-
-// ─── 文件类型 ──────────────────────────────────────────────────
-enum FileType {
-  pdf(Icons.description),
-  word(Icons.article),
-  excel(Icons.table_chart),
-  ppt(Icons.slideshow),
-  image(Icons.image),
-  text(Icons.note);
-
-  final IconData icon;
-
-  const FileType(this.icon);
-
-  Color color(bool isDark) {
-    switch (this) {
-      case FileType.pdf:
-        return AppColors.error(isDark);
-      case FileType.word:
-        return AppColors.info(isDark);
-      case FileType.excel:
-        return AppColors.success(isDark);
-      case FileType.ppt:
-        return AppColors.warning(isDark);
-      case FileType.image:
-        return AppColors.secondary(isDark);
-      case FileType.text:
-        return AppColors.textSecondary(isDark);
-    }
-  }
-}
-
-// ─── 文件数据模型 ──────────────────────────────────────────────
-class _FileItem {
-  final String name;
-  final double size; // bytes
-  final DateTime modifiedTime;
-  final FileType type;
-
-  _FileItem({
-    required this.name,
-    required this.size,
-    required this.modifiedTime,
-    required this.type,
-  });
-
-  String get sizeString {
-    if (size < 1024) return '${size.toStringAsFixed(0)} B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
-    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
-  String get timeString {
-    final diff = DateTime.now().difference(modifiedTime);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}分钟前';
-    if (diff.inHours < 24) return '${diff.inHours}小时前';
-    if (diff.inDays < 30) return '${diff.inDays}天前';
-    return '${modifiedTime.month}/${modifiedTime.day}';
-  }
 }

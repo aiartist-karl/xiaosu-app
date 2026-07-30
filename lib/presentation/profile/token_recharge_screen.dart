@@ -30,9 +30,6 @@ class _TokenRechargeScreenState extends State<TokenRechargeScreen> {
   int _selectedPackage = 0;
   int _selectedPayment = 0; // 0=支付宝 1=微信 2=Apple Pay
 
-  // 模拟余额
-  final int _tokenBalance = 1500;
-
   static const List<_RechargePackage> _packages = [
     _RechargePackage(price: 9, tokens: 500, tag: '推荐'),
     _RechargePackage(price: 29, tokens: 1800),
@@ -98,9 +95,9 @@ class _TokenRechargeScreenState extends State<TokenRechargeScreen> {
         children: [
           const Icon(Icons.diamond, color: Colors.white, size: 28),
           const SizedBox(height: 8),
-          Text(
-            '$_tokenBalance',
-            style: const TextStyle(
+          const Text(
+            '—',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 42,
               fontWeight: FontWeight.w700,

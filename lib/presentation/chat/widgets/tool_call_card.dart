@@ -1,5 +1,6 @@
 // ============================================================================
-// 小酥 v2 - 工具调用折叠卡片
+// 小酥 v3 - 工具调用折叠卡片（默认折叠，点击展开详情）
+// 样式：浅灰背景 #F5F5F5，圆角 8px，左侧彩色边框 4px
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -50,8 +51,7 @@ class ToolCallInfo {
     }
   }
 
-  Color iconColor(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Color iconColor(bool isDark) {
     switch (type) {
       case ToolCallType.webSearch: return AppColors.secondary(isDark);
       case ToolCallType.fileRead: return AppColors.info(isDark);
@@ -112,16 +112,16 @@ class _ToolCallCardState extends State<ToolCallCard>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tool = widget.toolCall;
-    final iconColor = tool.iconColor(context);
+    final borderColor = tool.iconColor(isDark);
+    final bgColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5);
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.04) : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.shade200,
-          width: 0.5,
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border(
+          left: BorderSide(color: borderColor, width: 4),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -140,13 +140,13 @@ class _ToolCallCardState extends State<ToolCallCard>
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: iconColor.withOpacity(0.1),
+                      color: borderColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       tool.icon,
                       size: 16,
-                      color: iconColor,
+                      color: borderColor,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -160,7 +160,7 @@ class _ToolCallCardState extends State<ToolCallCard>
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: iconColor,
+                            color: borderColor,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -185,7 +185,7 @@ class _ToolCallCardState extends State<ToolCallCard>
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 1.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                          valueColor: AlwaysStoppedAnimation<Color>(borderColor),
                         ),
                       ),
                     ),

@@ -1,8 +1,10 @@
 // ============================================================================
 // 小酥 - LLM 路由器（多模型智能路由）
+// Phase 1: Coze Studio 作为默认模型，DeepSeek 直连作为回退
 // ============================================================================
 
 import 'llm_provider.dart';
+import 'coze_studio_provider.dart';
 import 'openai_provider.dart';
 import 'qwen_provider.dart';
 
@@ -45,16 +47,28 @@ class LlmRouter {
 
   /// 初始化路由器
   void initialize({String? defaultModel}) {
-    // 注册默认模型（DeepSeek 直连）
+    // 注册 Coze Studio 为默认模型（通过后端代理对话）
+    registerModel(ModelConfig(
+      id: 'coze-studio',
+      name: 'Coze Studio（全能助手）',
+      provider: CozeStudioProvider.instance,
+      maxComplexity: TaskComplexity.complex,
+      costPerToken: 0.0, // 由后端统一管理 Token 计费
+      contextWindow: 65536,
+      supportsStreaming: true,
+    ));
+
+    // 注册 DeepSeek 直连作为回退
     registerModel(ModelConfig(
       id: 'deepseek-chat',
-      name: 'DeepSeek V3（直连）',
+      name: 'DeepSeek V3（直连回退）',
       provider: AliyunDeepSeekProvider.instance,
       maxComplexity: TaskComplexity.complex,
       contextWindow: 65536,
     ));
 
-    _defaultModelId = defaultModel ?? 'deepseek-chat';
+    // 默认使用 Coze Studio
+    _defaultModelId = defaultModel ?? 'coze-studio';
   }
 
   /// 注册模型
@@ -96,9 +110,15 @@ class LlmRouter {
   BaseLlmProvider get defaultProvider {
     final config = _models[_defaultModelId];
     if (config != null) return config.provider;
-    // 回退到 DeepSeek
+    // 回退链：Coze Studio -> DeepSeek 直连
+    if (_models.containsKey('coze-studio')) {
+      return _models['coze-studio']!.provider;
+    }
     return AliyunDeepSeekProvider.instance;
   }
+
+  /// 获取 Coze Studio Provider（快捷访问）
+  CozeStudioProvider get cozeStudioProvider => CozeStudioProvider.instance;
 
   /// 根据任务复杂度选择模型
   BaseLlmProvider route({
@@ -124,6 +144,23 @@ class LlmRouter {
 
     return best?.provider ?? defaultProvider;
   }
+
+  /// 切换到回退模型（当 Coze Studio 不可用时）
+  void fallbackToDirect() {
+    if (_models.containsKey('deepseek-chat')) {
+      _defaultModelId = 'deepseek-chat';
+    }
+  }
+
+  /// 切换回 Coze Studio
+  void switchBackToCozeStudio() {
+    if (_models.containsKey('coze-studio')) {
+      _defaultModelId = 'coze-studio';
+    }
+  }
+
+  /// 当前是否使用 Coze Studio
+  bool get isUsingCozeStudio => _defaultModelId == 'coze-studio';
 
   /// 分析消息复杂度
   TaskComplexity analyzeComplexity(String userMessage) {

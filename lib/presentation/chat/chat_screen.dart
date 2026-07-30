@@ -1,27 +1,30 @@
 // ============================================================================
-// 小酥 v2 - 聊天界面（动态状态栏 + 工具调用卡片 + 后台任务指示器）
+// 小酥 - 聊天界面
+// Phase 3: 对接 Coze Studio 对话，支持流式输出 + 会话切换
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/chat_engine.dart';
 import '../../models/chat_message.dart';
+import '../../presentation/chat/chat_controller.dart';
 import '../theme/app_colors.dart';
 import 'widgets/chat_input.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/dynamic_status_bar.dart';
-import 'widgets/tool_call_card.dart';
 import 'widgets/background_task_indicator.dart';
 
 /// 聊天界面
 class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
   final String? botName;
+  final String? cozeConversationId;
 
   const ChatScreen({
     super.key,
     required this.conversationId,
     this.botName,
+    this.cozeConversationId,
   });
 
   @override
@@ -39,20 +42,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isStreaming = false;
   String _selectedModel = 'Auto';
   String? _currentTaskName;
-
-  // 每个消息关联的工具调用
-  final Map<String, List<ToolCallInfo>> _messageToolCalls = {};
+  StreamSubscription<ChatMessage>? _streamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _engine.setActiveConversation(widget.conversationId);
+    _engine.setActiveConversation(
+      widget.conversationId,
+      cozeConversationId: widget.cozeConversationId,
+    );
     _messages.addAll(_engine.getHistory(widget.conversationId));
+    _loadHistoryFromCoze();
+  }
+
+  /// 从 Coze Studio 加载历史消息
+  Future<void> _loadHistoryFromCoze() async {
+    if (widget.cozeConversationId != null) {
+      final history = await _engine.loadMessagesFromCoze(widget.conversationId);
+      if (mounted && history.isNotEmpty) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(history);
+        });
+        _scrollToBottom();
+      }
+    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _streamSubscription?.cancel();
     super.dispose();
   }
 
@@ -112,6 +132,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         if (msg.role == MessageRole.user) continue;
 
         setState(() {
+          // 更新最后一条助手消息
           if (_messages.isNotEmpty &&
               _messages.last.role == MessageRole.assistant) {
             _messages[_messages.length - 1] = msg;
@@ -146,7 +167,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   void _showModelSelector() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final models = ['Auto', 'DeepSeek', 'Qwen', 'GPT-4o'];
+    final models = ['Auto', 'DeepSeek', 'Qwen', 'Coze Studio'];
 
     showModalBottomSheet(
       context: context,
@@ -188,6 +209,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                     onTap: () {
                       setState(() => _selectedModel = m);
+                      // 如果选择 Coze Studio 通道
+                      _engine.setUseCozeStudio(m == 'Coze Studio' || m == 'Auto');
                       Navigator.pop(ctx);
                     },
                   )),
@@ -214,6 +237,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           // 后台任务指示器
           BackgroundTaskIndicator(tasks: _backgroundTasks),
           const SizedBox(width: 8),
+          // Coze Studio 连接状态指示
+          _buildConnectionIndicator(isDark),
+          const SizedBox(width: 4),
           // 更多菜单
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -233,10 +259,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
-                      return MessageBubble(
-                        message: msg,
-                        toolCalls: _messageToolCalls[msg.id],
-                      );
+                      return MessageBubble(message: msg);
                     },
                   ),
           ),
@@ -250,7 +273,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onSend: _sendMessage,
             onModelSelect: _showModelSelector,
             onStop: () {
-              // TODO: 停止生成
               setState(() {
                 _isStreaming = false;
                 _statusBarState = StatusBarState.idle;
@@ -261,6 +283,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             selectedModel: _selectedModel,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionIndicator(bool isDark) {
+    final connected = _engine.useCozeStudio;
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: connected ? Colors.green : Colors.grey,
+        shape: BoxShape.circle,
       ),
     );
   }
@@ -340,6 +374,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Navigator.pop(context);
                 _engine.clearHistory(widget.conversationId);
                 setState(() => _messages.clear());
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_download),
+              title: const Text('从 Coze Studio 重新加载'),
+              onTap: () {
+                Navigator.pop(context);
+                _loadHistoryFromCoze();
               },
             ),
             ListTile(

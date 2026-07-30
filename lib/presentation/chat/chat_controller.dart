@@ -1,109 +1,26 @@
+// ============================================================================
+// 小酥 - 聊天控制器
+// Phase 3: 对接 Coze Studio 对话 API，支持流式响应 + 会话管理
+// ============================================================================
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// ============================================================
-// 聊天消息模型
-// ============================================================
-
-/// 消息角色
-enum MessageRole { user, assistant, system, tool }
-
-/// 消息内容类型
-enum MessageContentType { text, image, code, toolCall, system }
-
-/// 单条聊天消息
-class ChatMessage {
-  final String id;
-  final MessageRole role;
-  final String content;
-  final DateTime timestamp;
-  final MessageContentType contentType;
-
-  /// 是否为流式输出中的消息
-  bool isStreaming;
-
-  /// 工具调用信息（仅 toolCall 类型）
-  final String? toolName;
-  final String? toolResult;
-
-  /// 图片 URL（仅 image 类型）
-  final String? imageUrl;
-
-  /// 代码块语言标识（仅 code 类型）
-  final String? codeLanguage;
-
-  ChatMessage({
-    required this.id,
-    required this.role,
-    required this.content,
-    required this.timestamp,
-    this.contentType = MessageContentType.text,
-    this.isStreaming = false,
-    this.toolName,
-    this.toolResult,
-    this.imageUrl,
-    this.codeLanguage,
-  });
-
-  /// 创建副本并修改部分字段
-  ChatMessage copyWith({
-    String? content,
-    bool? isStreaming,
-    String? toolResult,
-  }) {
-    return ChatMessage(
-      id: id,
-      role: role,
-      content: content ?? this.content,
-      timestamp: timestamp,
-      contentType: contentType,
-      isStreaming: isStreaming ?? this.isStreaming,
-      toolName: toolName,
-      toolResult: toolResult ?? this.toolResult,
-      imageUrl: imageUrl,
-      codeLanguage: codeLanguage,
-    );
-  }
-}
-
-/// 会话模型
-class ChatSession {
-  final String id;
-  final String title;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final String? modelId;
-  final bool isPinned;
-  final List<ChatMessage> messages;
-
-  ChatSession({
-    required this.id,
-    required this.title,
-    required this.createdAt,
-    required this.updatedAt,
-    this.modelId,
-    this.isPinned = false,
-    this.messages = const [],
-  });
-
-  /// 最近一条消息的摘要（用于列表预览）
-  String get preview {
-    if (messages.isEmpty) return '新对话';
-    final last = messages.last;
-    if (last.content.length > 50) {
-      return '${last.content.substring(0, 50)}...';
-    }
-    return last.content;
-  }
-}
+import '../../core/chat_engine.dart';
+import '../../models/chat_message.dart';
+import '../../data/repositories/conversation_repository.dart';
+import '../../data/models/conversation_model.dart';
 
 // ============================================================
 // 聊天状态
 // ============================================================
 
 class ChatState {
-  /// 当前会话
-  final ChatSession? currentSession;
+  /// 当前会话 ID
+  final String? conversationId;
+
+  /// 当前 Coze Studio 会话
+  final ConversationModel? cozeConversation;
 
   /// 消息列表
   final List<ChatMessage> messages;
@@ -120,49 +37,52 @@ class ChatState {
   /// 是否正在加载历史消息
   final bool isLoadingHistory;
 
-  /// 已加载的历史页数
-  final int historyPage;
+  /// 是否正在加载会话列表
+  final bool isLoadingConversations;
 
-  /// 是否还有更多历史消息
-  final bool hasMoreHistory;
+  /// 会话列表
+  final List<ConversationModel> conversations;
 
   /// 选中的消息 ID（用于长按菜单）
   final String? selectedMessageId;
 
   const ChatState({
-    this.currentSession,
+    this.conversationId,
+    this.cozeConversation,
     this.messages = const [],
     this.inputText = '',
     this.isGenerating = false,
     this.error,
     this.isLoadingHistory = false,
-    this.historyPage = 0,
-    this.hasMoreHistory = true,
+    this.isLoadingConversations = false,
+    this.conversations = const [],
     this.selectedMessageId,
   });
 
   ChatState copyWith({
-    ChatSession? currentSession,
+    String? conversationId,
+    ConversationModel? cozeConversation,
     List<ChatMessage>? messages,
     String? inputText,
     bool? isGenerating,
     String? error,
     bool? clearError,
     bool? isLoadingHistory,
-    int? historyPage,
-    bool? hasMoreHistory,
+    bool? isLoadingConversations,
+    List<ConversationModel>? conversations,
     String? selectedMessageId,
     bool? clearSelectedMessage,
   }) {
     return ChatState(
-      currentSession: currentSession ?? this.currentSession,
+      conversationId: conversationId ?? this.conversationId,
+      cozeConversation: cozeConversation ?? this.cozeConversation,
       messages: messages ?? this.messages,
       inputText: inputText ?? this.inputText,
       isGenerating: isGenerating ?? this.isGenerating,
       error: clearError == true ? null : (error ?? this.error),
       isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
-      historyPage: historyPage ?? this.historyPage,
-      hasMoreHistory: hasMoreHistory ?? this.hasMoreHistory,
+      isLoadingConversations: isLoadingConversations ?? this.isLoadingConversations,
+      conversations: conversations ?? this.conversations,
       selectedMessageId: clearSelectedMessage == true
           ? null
           : (selectedMessageId ?? this.selectedMessageId),
@@ -174,102 +94,91 @@ class ChatState {
 // 聊天控制器（StateNotifier）
 // ============================================================
 
-/// 聊天控制器
-/// 管理消息列表、用户输入、流式消息处理等核心逻辑
+/// 聊天控制器 - 对接 Coze Studio 对话系统
 class ChatController extends StateNotifier<ChatState> {
   ChatController() : super(const ChatState());
+
+  final ChatEngine _engine = ChatEngine.instance;
+  final ConversationRepository _repo = ConversationRepository.instance;
 
   /// 更新用户输入文本
   void updateInput(String text) {
     state = state.copyWith(inputText: text);
   }
 
-  /// 发送消息
-  /// 将用户输入添加到消息列表，并触发 AI 回复
+  /// 发送消息（流式）
   Future<void> sendMessage() async {
     final text = state.inputText.trim();
     if (text.isEmpty || state.isGenerating) return;
 
-    // 创建用户消息
+    // 确保有活跃会话
+    String conversationId = state.conversationId ?? '';
+    if (conversationId.isEmpty) {
+      conversationId = DateTime.now().millisecondsSinceEpoch.toString();
+      _engine.setActiveConversation(conversationId);
+    }
+
+    // 创建用户消息并添加到列表
     final userMessage = ChatMessage(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      role: MessageRole.user,
+      conversationId: conversationId,
       content: text,
+      role: MessageRole.user,
       timestamp: DateTime.now(),
     );
 
-    // 清空输入框，添加用户消息
     state = state.copyWith(
+      conversationId: conversationId,
       inputText: '',
       messages: [...state.messages, userMessage],
       error: null,
     );
 
-    // 如果是新会话的第一条消息，创建会话
-    if (state.currentSession == null) {
-      final session = ChatSession(
-        id: 'session_${DateTime.now().millisecondsSinceEpoch}',
-        title: text.length > 20 ? '${text.substring(0, 20)}...' : text,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        messages: [userMessage],
-      );
-      state = state.copyWith(currentSession: session);
-    }
-
-    // 触发 AI 回复（此处为模拟，实际接入 ChatEngine）
-    await _generateAIResponse(userMessage);
-  }
-
-  /// 模拟 AI 流式回复
-  /// 实际项目中应替换为真正的 ChatEngine 调用
-  Future<void> _generateAIResponse(ChatMessage userMessage) async {
-    // 创建 AI 消息占位
-    final aiMessageId = 'ai_${DateTime.now().millisecondsSinceEpoch}';
-    final aiMessage = ChatMessage(
-      id: aiMessageId,
-      role: MessageRole.assistant,
-      content: '',
-      timestamp: DateTime.now(),
-      isStreaming: true,
-    );
-
-    state = state.copyWith(
-      messages: [...state.messages, aiMessage],
-      isGenerating: true,
-    );
-
-    // 模拟流式输出
+    // 通过 ChatEngine 发送流式消息
     try {
-      // 模拟流式文字生成
-      final responseText = '你好！我是小酥，你的全能 AI 助手 🍪\n\n'
-          '我注意到你发送了：「${userMessage.content}」\n\n'
-          '我可以帮你完成很多事情：\n'
-          '- 💬 自然对话和知识问答\n'
-          '- 📝 文案创作和文档生成\n'
-          '- 🔍 信息检索和分析\n'
-          '- 🛠️ 调用各种技能完成任务\n\n'
-          '有什么我可以帮你的吗？';
+      await for (final msg in _engine.sendMessageStream(
+        conversationId: conversationId,
+        content: text,
+      )) {
+        if (msg.role == MessageRole.user) continue;
 
-      // 逐字输出，模拟流式效果
-      String currentText = '';
-      for (int i = 0; i < responseText.length; i++) {
-        currentText += responseText[i];
-        await Future.delayed(const Duration(milliseconds: 30));
-
-        // 更新消息内容
-        final updatedMessages = List<ChatMessage>.from(state.messages);
-        final idx = updatedMessages.indexWhere((m) => m.id == aiMessageId);
-        if (idx != -1) {
-          updatedMessages[idx] = updatedMessages[idx].copyWith(
-            content: currentText,
-            isStreaming: i < responseText.length - 1,
+        if (msg.status == MessageStatus.streaming) {
+          // 流式中 - 更新或追加 AI 消息
+          final messages = List<ChatMessage>.from(state.messages);
+          final existingIdx = messages.indexWhere(
+            (m) => m.id == msg.id && m.role == MessageRole.assistant,
+          );
+          if (existingIdx >= 0) {
+            messages[existingIdx] = msg;
+          } else {
+            messages.add(msg);
+          }
+          state = state.copyWith(
+            messages: messages,
+            isGenerating: true,
+          );
+        } else {
+          // 完成或错误
+          final messages = List<ChatMessage>.from(state.messages);
+          final existingIdx = messages.indexWhere(
+            (m) => m.id == msg.id && m.role == MessageRole.assistant,
+          );
+          if (existingIdx >= 0) {
+            messages[existingIdx] = msg;
+          } else {
+            messages.add(msg);
+          }
+          state = state.copyWith(
+            messages: messages,
+            isGenerating: false,
           );
         }
-        state = state.copyWith(messages: updatedMessages);
       }
 
-      state = state.copyWith(isGenerating: false);
+      // 确保 isGenerating 已关闭
+      if (state.isGenerating) {
+        state = state.copyWith(isGenerating: false);
+      }
     } catch (e) {
       state = state.copyWith(
         isGenerating: false,
@@ -281,9 +190,10 @@ class ChatController extends StateNotifier<ChatState> {
   /// 停止生成
   void stopGenerating() {
     if (state.isGenerating) {
-      // 将所有流式中的消息标记为完成
       final updatedMessages = state.messages.map((m) {
-        if (m.isStreaming) return m.copyWith(isStreaming: false);
+        if (m.status == MessageStatus.streaming) {
+          return m.copyWith(status: MessageStatus.completed);
+        }
         return m;
       }).toList();
 
@@ -294,34 +204,80 @@ class ChatController extends StateNotifier<ChatState> {
     }
   }
 
-  /// 加载历史消息（分页）
-  Future<void> loadMoreHistory() async {
-    if (state.isLoadingHistory || !state.hasMoreHistory) return;
+  /// 加载 Coze Studio 会话列表
+  Future<void> loadConversations() async {
+    state = state.copyWith(isLoadingConversations: true);
 
-    state = state.copyWith(isLoadingHistory: true);
-
-    // 模拟延迟
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // 模拟加载历史消息
-    final historyMessages = List.generate(10, (i) {
-      final index = state.historyPage * 10 + i;
-      return ChatMessage(
-        id: 'history_${index}',
-        role: index.isEven ? MessageRole.user : MessageRole.assistant,
-        content: '历史消息 #${index + 1}',
-        timestamp: DateTime.now().subtract(
-          Duration(days: index ~/ 2, hours: index),
-        ),
+    try {
+      final conversations = await _engine.loadCozeConversations();
+      state = state.copyWith(
+        conversations: conversations,
+        isLoadingConversations: false,
       );
-    });
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingConversations: false,
+        error: '加载会话列表失败: $e',
+      );
+    }
+  }
+
+  /// 切换到指定会话
+  Future<void> switchConversation(ConversationModel conversation) async {
+    final localId = conversation.id;
+    final cozeConvId = conversation.cozeConversationId;
+
+    _engine.setActiveConversation(localId, cozeConversationId: cozeConvId);
+
+    // 从 Coze Studio 加载历史消息
+    state = state.copyWith(
+      conversationId: localId,
+      cozeConversation: conversation,
+      messages: [],
+      isLoadingHistory: true,
+      error: null,
+    );
+
+    try {
+      final messages = await _engine.loadMessagesFromCoze(localId);
+      state = state.copyWith(
+        messages: messages,
+        isLoadingHistory: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingHistory: false,
+        error: '加载历史消息失败: $e',
+      );
+    }
+  }
+
+  /// 创建新会话（通过 Coze Studio）
+  Future<String?> createNewConversation({String? botId}) async {
+    final conversation = await _repo.createOnCoze(botId: botId);
+    if (conversation == null) return null;
+
+    final localId = DateTime.now().millisecondsSinceEpoch.toString();
+    _engine.setActiveConversation(
+      localId,
+      cozeConversationId: conversation.cozeConversationId,
+    );
 
     state = state.copyWith(
-      messages: [...historyMessages.reversed.toList(), ...state.messages],
-      isLoadingHistory: false,
-      historyPage: state.historyPage + 1,
-      hasMoreHistory: state.historyPage < 3, // 模拟最多 4 页
+      conversationId: localId,
+      cozeConversation: conversation,
+      messages: [],
+      error: null,
     );
+
+    return localId;
+  }
+
+  /// 新建空白会话（本地）
+  void newSession() {
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    _engine.setActiveConversation(id);
+    state = ChatState(conversationId: id);
   }
 
   /// 删除消息
@@ -347,23 +303,18 @@ class ChatController extends StateNotifier<ChatState> {
       (m) => m.id == messageId,
       orElse: () => throw Exception('消息不存在'),
     );
-    // 实际项目中通过 Clipboard 复制
     debugPrint('复制消息: ${msg.content}');
   }
 
-  /// 切换会话
-  void switchSession(ChatSession session) {
+  /// 清空当前对话
+  void clearConversation() {
+    if (state.conversationId != null) {
+      _engine.clearHistory(state.conversationId!);
+    }
     state = state.copyWith(
-      currentSession: session,
-      messages: session.messages,
-      inputText: '',
+      messages: [],
       error: null,
     );
-  }
-
-  /// 新建会话
-  void newSession() {
-    state = const ChatState();
   }
 
   /// 清除错误

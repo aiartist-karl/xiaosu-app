@@ -1,13 +1,14 @@
 // ============================================================================
-// 小酥 v2 - 首页（对话列表 + Token余额卡片）
+// 小酥 v3 - 首页（对标扣子 APP 视觉风格）
+// 蓝紫渐变 Token 卡片 + 卡片化对话列表 + 筛选 Tab
 // ============================================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/chat_engine.dart';
-import '../../../models/conversation.dart';
-import '../../../presentation/theme/app_colors.dart';
+import '../../core/chat_engine.dart';
+import '../../models/conversation.dart';
+import '../../presentation/theme/app_colors.dart';
 
 /// 首页 - 对话列表
 class HomePage extends ConsumerStatefulWidget {
@@ -25,13 +26,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isSearching = false;
   String _searchQuery = '';
 
-  // 模拟 Token 余额（后续对接后端）
-  final int _tokenBalance = 1500;
+  // Token 余额
+  int? _tokenBalance;
+  bool _tokenLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadConversations();
+    _loadTokenBalance();
   }
 
   @override
@@ -40,6 +43,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
+  /// 加载对话列表
   void _loadConversations() {
     final ids = _engine.conversationIds;
     setState(() {
@@ -52,11 +56,21 @@ class _HomePageState extends ConsumerState<HomePage> {
           createdAt: history.isNotEmpty ? history.first.timestamp : DateTime.now(),
           updatedAt: history.isNotEmpty ? history.last.timestamp : DateTime.now(),
           messageCount: history.length,
+          lastMessage: history.isNotEmpty ? history.last.content : null,
         ));
       }
-      // 按更新时间倒序
       _conversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     });
+  }
+
+  Future<void> _loadTokenBalance() async {
+    setState(() => _tokenLoading = true);
+    if (mounted) {
+      setState(() {
+        _tokenBalance = null;
+        _tokenLoading = false;
+      });
+    }
   }
 
   String _extractTitle(String content) {
@@ -67,17 +81,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   List<Conversation> get _filteredConversations {
     final now = DateTime.now();
     switch (_selectedFilter) {
-      case 2: // 今天
+      case 2:
         return _conversations.where((c) =>
           c.updatedAt.year == now.year &&
           c.updatedAt.month == now.month &&
           c.updatedAt.day == now.day).toList();
-      case 3: // 更早
+      case 3:
         return _conversations.where((c) =>
           !(c.updatedAt.year == now.year &&
             c.updatedAt.month == now.month &&
             c.updatedAt.day == now.day)).toList();
-      default: // 最近 / 收藏
+      default:
         return _conversations;
     }
   }
@@ -102,18 +116,14 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: AppColors.background(isDark),
       body: SafeArea(
         child: Column(
           children: [
-            // ─── 顶部栏 ───
             _buildTopBar(isDark),
-            // ─── Token余额卡片 ───
             _buildTokenCard(isDark),
-            // ─── 筛选Tab ───
             _buildFilterTabs(isDark),
-            // ─── 对话列表 ───
             Expanded(child: _buildConversationList(isDark)),
-            // ─── 底部输入栏 ───
             _buildInputBar(isDark),
           ],
         ),
@@ -121,42 +131,68 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  // ─── 顶部栏 ───
+  // ─── 顶部栏：头像 + 用户名 + 搜索 + 新建 ───
   Widget _buildTopBar(bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
       child: Row(
         children: [
-          // 头像
+          // 用户头像
           GestureDetector(
-            onTap: () => _showProfileSheet(),
+            onTap: () => context.pushNamed('profile'),
             child: CircleAvatar(
               radius: 18,
-              backgroundColor: AppColors.primary(isDark).withOpacity(0.15),
-              child: const Icon(Icons.person, size: 20),
+              backgroundColor: AppColors.primary(isDark).withOpacity(0.12),
+              child: Icon(Icons.person, size: 20, color: AppColors.primary(isDark)),
             ),
           ),
-          const SizedBox(width: 12),
-          // 标题或搜索框
+          const SizedBox(width: 10),
+          // 用户名
           Expanded(
-            child: _isSearching ? _buildSearchField(isDark) : const SizedBox.shrink(),
+            child: Text(
+              '小酥',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary(isDark),
+              ),
+            ),
           ),
-          if (!_isSearching) ...[
-            const Spacer(),
-            // 搜索按钮
+          // 搜索图标
+          if (!_isSearching)
             IconButton(
-              icon: Icon(Icons.search, color: AppColors.textSecondary(isDark)),
+              icon: Icon(Icons.search_rounded, size: 24, color: AppColors.textSecondary(isDark)),
               onPressed: () => setState(() => _isSearching = true),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
-            // 新建对话
-            IconButton(
-              icon: Icon(Icons.add_circle_outline, color: AppColors.primary(isDark)),
-              onPressed: _createNewConversation,
-            ),
-          ],
+          // 新建图标
+          IconButton(
+            icon: Icon(Icons.add_circle_outline_rounded, size: 24, color: AppColors.primary(isDark)),
+            onPressed: _createNewConversation,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+          // 搜索模式下的输入框和关闭按钮
           if (_isSearching) ...[
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '搜索对话...',
+                  hintStyle: TextStyle(color: AppColors.textHint(isDark), fontSize: 15),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  isDense: true,
+                ),
+                style: TextStyle(fontSize: 15, color: AppColors.textPrimary(isDark)),
+                onChanged: (v) => setState(() => _searchQuery = v),
+              ),
+            ),
             IconButton(
-              icon: const Icon(Icons.close, size: 20),
+              icon: Icon(Icons.close_rounded, size: 22, color: AppColors.textSecondary(isDark)),
               onPressed: () {
                 setState(() {
                   _isSearching = false;
@@ -164,6 +200,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   _searchController.clear();
                 });
               },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
           ],
         ],
@@ -171,66 +209,73 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _buildSearchField(bool isDark) {
-    return TextField(
-      controller: _searchController,
-      autofocus: true,
-      decoration: InputDecoration(
-        hintText: '搜索对话...',
-        hintStyle: TextStyle(color: AppColors.textHint(isDark), fontSize: 15),
-        border: InputBorder.none,
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        isDense: true,
-      ),
-      style: TextStyle(fontSize: 15, color: AppColors.textPrimary(isDark)),
-      onChanged: (v) => setState(() => _searchQuery = v),
-    );
-  }
-
-  // ─── Token余额卡片 ───
+  // ─── Token 余额卡片（蓝紫渐变） ───
   Widget _buildTokenCard(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: GestureDetector(
-        onTap: () {
-          // TODO: 跳转充值页
-        },
+        onTap: () => context.pushNamed('token-recharge'),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primary(isDark),
-                AppColors.primary(isDark).withOpacity(0.7),
-              ],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(12),
+            gradient: AppColors.tokenCardGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF667EEA).withOpacity(0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.diamond, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                '剩余 $_tokenBalance Token',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              // 顶部：标签 + 余额
+              Row(
+                children: [
+                  const Icon(Icons.diamond_rounded, color: Colors.white70, size: 18),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Token 余额',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  const Spacer(),
+                  if (_tokenLoading)
+                    const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    )
+                  else
+                    Text(
+                      _tokenBalance != null ? '$_tokenBalance' : '--',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 进度条
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _tokenBalance != null ? (_tokenBalance! / 10000).clamp(0.0, 1.0) : null,
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  minHeight: 6,
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.25),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '充值',
-                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-                ),
+              const SizedBox(height: 14),
+              // 底部按钮
+              Row(
+                children: [
+                  _buildTokenActionBtn('充值', Icons.add_rounded),
+                  const SizedBox(width: 10),
+                  _buildTokenActionBtn('消费记录', Icons.receipt_long_rounded),
+                ],
               ),
             ],
           ),
@@ -239,35 +284,53 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  // ─── 筛选Tab ───
+  Widget _buildTokenActionBtn(String label, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── 筛选 Tab ───
   Widget _buildFilterTabs(bool isDark) {
     final filters = ['最近', '收藏', '今天', '更早'];
     return Container(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Row(
         children: List.generate(filters.length, (i) {
           final selected = _selectedFilter == i;
           return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedFilter = i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary(isDark).withOpacity(0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    filters[i],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected ? AppColors.primary(isDark) : AppColors.textSecondary(isDark),
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    ),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedFilter = i),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primary(isDark).withOpacity(0.10)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  filters[i],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: selected ? AppColors.primary(isDark) : AppColors.textSecondary(isDark),
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ),
@@ -286,7 +349,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.chat_bubble_outline, size: 48, color: AppColors.textHint(isDark)),
+            Icon(Icons.chat_bubble_outline_rounded, size: 48, color: AppColors.textHint(isDark)),
             const SizedBox(height: 12),
             Text(
               _searchQuery.isNotEmpty ? '没有找到匹配的对话' : '还没有对话记录',
@@ -305,12 +368,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       itemCount: list.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 2),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final conv = list[index];
-        return _buildConversationItem(conv, isDark);
+        return _buildConversationItem(list[index], isDark);
       },
     );
   }
@@ -320,48 +382,54 @@ class _HomePageState extends ConsumerState<HomePage> {
       onTap: () => context.pushNamed('chat', pathParameters: {'conversationId': conv.id}),
       onLongPress: () => _showConversationActions(conv),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.card(isDark),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [AppColors.shadow(isDark)],
+        ),
         child: Row(
           children: [
-            // Bot 头像
+            // Bot 头像（圆形）
             CircleAvatar(
               radius: 22,
-              backgroundColor: AppColors.primary(isDark).withOpacity(0.12),
+              backgroundColor: AppColors.primary(isDark).withOpacity(0.10),
               child: Icon(Icons.smart_toy_outlined, size: 22, color: AppColors.primary(isDark)),
             ),
             const SizedBox(width: 12),
-            // 内容
+            // 中间：名称 + 预览
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conv.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary(isDark),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _formatDate(conv.updatedAt),
-                        style: TextStyle(fontSize: 12, color: AppColors.textHint(isDark)),
-                      ),
-                    ],
+                  Text(
+                    conv.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary(isDark),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${conv.messageCount} 条消息',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary(isDark)),
+                    conv.lastMessage ?? '${conv.messageCount} 条消息',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary(isDark),
+                    ),
                   ),
                 ],
               ),
+            ),
+            const SizedBox(width: 8),
+            // 右侧：时间
+            Text(
+              _formatDate(conv.updatedAt),
+              style: TextStyle(fontSize: 12, color: AppColors.textHint(isDark)),
             ),
           ],
         ),
@@ -369,11 +437,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  // ─── 底部输入栏 ───
+  // ─── 底部输入栏（预留） ───
   Widget _buildInputBar(bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface(isDark),
+        color: AppColors.card(isDark),
         border: Border(top: BorderSide(color: AppColors.divider(isDark), width: 0.5)),
       ),
       padding: EdgeInsets.only(
@@ -382,22 +450,20 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       child: Row(
         children: [
-          // + 按钮
           IconButton(
-            icon: Icon(Icons.add_circle_outline, size: 24, color: AppColors.textSecondary(isDark)),
+            icon: Icon(Icons.add_circle_outline_rounded, size: 24, color: AppColors.textSecondary(isDark)),
             onPressed: _createNewConversation,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
           const SizedBox(width: 8),
-          // 输入框
           Expanded(
             child: GestureDetector(
               onTap: _createNewConversation,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
+                  color: isDark ? AppColors.surfaceVariantDark : const Color(0xFFF5F5F7),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Text(
@@ -412,42 +478,44 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  // ─── 长按对话操作 ───
+  // ─── 长按操作菜单 ───
   void _showConversationActions(Conversation conv) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.push_pin_outlined),
-              title: const Text('置顶'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              leading: const Icon(Icons.star_outline),
-              title: const Text('收藏'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('删除', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                _engine.deleteConversation(conv.id);
-                _loadConversations();
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.push_pin_outlined, color: AppColors.primary(false)),
+                title: const Text('置顶'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+              ListTile(
+                leading: Icon(Icons.star_outline_rounded, color: AppColors.warning(false)),
+                title: const Text('收藏'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                title: const Text('删除', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  _engine.deleteConversation(conv.id);
+                  _loadConversations();
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  // ─── 点击头像弹出侧边栏 ───
-  void _showProfileSheet() {
-    context.pushNamed('profile');
   }
 
   String _formatDate(DateTime dt) {
@@ -459,7 +527,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
     if (diff.inDays == 1) return '昨天';
-    if (diff.inDays < 7) return '${diff.inDays}天前';
     return '${dt.month}/${dt.day}';
   }
 }
