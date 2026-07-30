@@ -287,10 +287,9 @@ class _TokenRechargeScreenState extends State<TokenRechargeScreen> {
     final pkg = _packages[_selectedPackage];
     return GestureDetector(
       onTap: () {
-        // TODO: 接入支付 SDK
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('即将支付 ¥${pkg.price} 获取 ${pkg.tokens} Token'),
+            content: Text('充值功能需对接支付SDK，当前使用卡密充值（¥${pkg.price} → ${pkg.tokens} Token）'),
             backgroundColor: AppColors.primary(isDark),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

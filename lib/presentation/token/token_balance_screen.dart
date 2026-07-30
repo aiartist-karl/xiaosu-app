@@ -371,7 +371,13 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen>
       children: options.map((opt) => GestureDetector(
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('充值 ${opt.tokens} Token 功能开发中')),
+            SnackBar(
+              content: const Text('充值功能需对接支付SDK，当前使用卡密充值'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           );
         },
         child: Container(
