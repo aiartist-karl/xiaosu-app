@@ -548,7 +548,7 @@ class _WorkflowDetailScreenState extends State<WorkflowDetailScreen>
       case CozeNodeCategory.knowledge:
         return Icons.menu_book;
       case CozeNodeCategory.db:
-        return Icons.database;
+        return Icons.storage;
       case CozeNodeCategory.conversation:
         return Icons.chat;
       case CozeNodeCategory.network:
