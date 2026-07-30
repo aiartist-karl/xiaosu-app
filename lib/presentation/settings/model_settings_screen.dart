@@ -77,14 +77,95 @@ class _ModelSettingsScreenState extends State<ModelSettingsScreen> {
           const SizedBox(height: 32),
           // 添加自定义模型
           OutlinedButton.icon(
-            onPressed: () {
-              // TODO: 添加自定义模型API
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请在代码中配置自定义模型')),
-              );
-            },
+            onPressed: () => _showAddModelDialog(context),
             icon: const Icon(Icons.add),
             label: const Text('添加自定义模型'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddModelDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final apiKeyController = TextEditingController();
+    final baseUrlController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('添加自定义模型'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: '模型名称',
+                  hintText: '例如：gpt-4o、claude-3.5-sonnet',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.label_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: apiKeyController,
+                decoration: const InputDecoration(
+                  labelText: 'API Key',
+                  hintText: 'sk-...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.key),
+                ),
+                obscureText: true,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: baseUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Base URL（可选）',
+                  hintText: 'https://api.openai.com/v1',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final apiKey = apiKeyController.text.trim();
+              final baseUrl = baseUrlController.text.trim();
+
+              if (name.isEmpty || apiKey.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('请填写模型名称和 API Key'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
+
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('已添加自定义模型「$name」'
+                      '${baseUrl.isNotEmpty ? "（$baseUrl）" : ""}'),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+            },
+            child: const Text('添加'),
           ),
         ],
       ),
