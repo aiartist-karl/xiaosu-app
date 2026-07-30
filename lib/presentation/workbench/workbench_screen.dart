@@ -166,7 +166,74 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        // ─── 云设备入口（全宽） ───
+        _cloudDeviceEntry(isDark),
       ],
+    );
+  }
+
+  Widget _cloudDeviceEntry(bool isDark) {
+    return GestureDetector(
+      onTap: () => context.pushNamed('cloud-devices'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF6366F1).withOpacity(isDark ? 0.3 : 0.08),
+              const Color(0xFF8B5CF6).withOpacity(isDark ? 0.2 : 0.05),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFF6366F1).withOpacity(0.2),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(
+                child: Icon(Icons.cloud, color: Color(0xFF6366F1), size: 22),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '云设备',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary(isDark),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '云电脑 2台 · 云手机 2台 · 2台在线',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: AppColors.textHint(isDark), size: 20),
+          ],
+        ),
+      ),
     );
   }
 

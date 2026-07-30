@@ -36,6 +36,7 @@ import 'package:xiaosu/presentation/workbench/files_screen.dart';
 import 'package:xiaosu/presentation/workbench/schedule_screen.dart';
 import 'package:xiaosu/presentation/workbench/project_screen.dart';
 import 'package:xiaosu/presentation/workbench/memory_screen.dart';
+import 'package:xiaosu/presentation/cloud_device/cloud_device_screen.dart';
 
 // ─── Profile 子页面 ─────────────────────────────────────────
 import 'package:xiaosu/presentation/profile/token_recharge_screen.dart';
@@ -286,6 +287,12 @@ class XiaoSuApp extends ConsumerWidget {
           path: '/workbench/memory',
           name: 'workbench-memory',
           builder: (context, state) => const MemoryScreen(),
+        ),
+        // 云设备管理
+        GoRoute(
+          path: '/cloud-devices',
+          name: 'cloud-devices',
+          builder: (context, state) => const CloudDeviceScreen(),
         ),
 
         // ===== 新增功能页面 =====
