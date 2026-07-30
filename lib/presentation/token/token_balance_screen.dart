@@ -359,7 +359,7 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen>
       _RechargeOption(tokens: 5000, price: 35, bonus: '企业首选'),
     ];
 
-    return GridView.count(
+    return GridView(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: 12,

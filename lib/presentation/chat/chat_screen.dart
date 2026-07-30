@@ -3,6 +3,7 @@
 // Phase 3: 对接 Coze Studio 对话，支持流式输出 + 会话切换
 // ============================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/chat_engine.dart';

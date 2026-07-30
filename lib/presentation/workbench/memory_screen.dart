@@ -20,7 +20,7 @@ class _MemoryScreenState extends State<MemoryScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
-  final MemoryRepository _memoryRepo = MemoryRepository();
+  final MemoryRepository _memoryRepo = MemoryRepository.instance;
   String _searchQuery = '';
 
   List<CozeMemory> _memories = [];

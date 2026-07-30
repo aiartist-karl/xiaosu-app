@@ -65,10 +65,10 @@ class _KnowledgeDetailScreenState extends State<KnowledgeDetailScreen> {
     setState(() {
       _isLoading = false;
       if (results[0].success && results[0].data != null) {
-        _dataset = results[0].data!;
+        _dataset = results[0].data as KnowledgeDataset?;
       }
       if (results[1].success && results[1].data != null) {
-        _documents = results[1].data!;
+        _documents = results[1].data as List<KnowledgeDocument>? ?? [];
       }
       if (!results[0].success && !results[1].success) {
         _error = results[0].error ?? results[1].error ?? '加载失败';
@@ -430,7 +430,7 @@ class _KnowledgeDetailScreenState extends State<KnowledgeDetailScreen> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.play_search),
+              : const Icon(Icons.search),
           tooltip: '检索',
         ),
       ],

@@ -19,7 +19,7 @@ class WorkbenchScreen extends StatefulWidget {
 
 class _WorkbenchScreenState extends State<WorkbenchScreen> {
   final FileRepository _fileRepo = FileRepository();
-  final MemoryRepository _memoryRepo = MemoryRepository();
+  final MemoryRepository _memoryRepo = MemoryRepository.instance;
 
   int? _fileCount;
   int? _memoryCount;

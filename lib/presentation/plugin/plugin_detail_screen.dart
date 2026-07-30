@@ -66,11 +66,11 @@ class _PluginDetailScreenState extends State<PluginDetailScreen> {
     setState(() {
       _isLoading = false;
       if (results[0].success && results[0].data != null) {
-        _plugin = results[0].data!;
+        _plugin = results[0].data as PluginModel?;
       }
       // 合并工具列表
-      if (results[1].success && results[1].data != null && results[1].data!.isNotEmpty) {
-        _plugin = _plugin?.copyWith(tools: results[1].data!) ?? _plugin;
+      if (results[1].success && results[1].data != null && (results[1].data as List<PluginTool>?)!.isNotEmpty) {
+        _plugin = _plugin?.copyWith(tools: results[1].data as List<PluginTool>?) ?? _plugin;
       }
       if (_plugin == null) {
         _error = results[0].error ?? '加载失败';
