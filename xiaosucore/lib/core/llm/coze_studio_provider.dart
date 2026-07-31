@@ -6,8 +6,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../config/app_config.dart';
 import '../gateway/credential_manager.dart';
@@ -24,14 +22,13 @@ enum CozeChatStatus {
 
 /// Coze Studio SSE 事件类型
 enum CozeSSEEventType {
-  conversationCreated,    // Conversation.chat.created
-  conversationInProgress, // Conversation.chat.in_progress
-  chatCreated,            // Conversation.chat.created
-  messageDelta,           // Conversation.message.delta
-  messageCompleted,       // Conversation.message.completed
-  chatCompleted,          // Conversation.chat.completed
-  error,                  // Error
-  done,                   // Done
+  conversationCreated, // Conversation.chat.created
+  chatCreated,         // Conversation.chat.created
+  messageDelta,        // Conversation.message.delta
+  messageCompleted,    // Conversation.message.completed
+  chatCompleted,       // Conversation.chat.completed
+  error,               // Error
+  done,                // Done
   unknown,
 }
 
@@ -62,42 +59,6 @@ class CozeStudioProvider extends BaseLlmProvider {
 
   @override
   String get providerId => 'coze_studio';
-
-  /// Web 平台 HTTP POST（使用 dart:html 确保 UTF-8 解码正确）
-  /// 返回 (statusCode, bodyText)
-  Future<(int?, String)> _postJson(String urlStr, Map<String, String> headers, String jsonBody) async {
-    try {
-      final xhr = await html.HttpRequest.request(
-        urlStr,
-        method: 'POST',
-        requestHeaders: headers,
-        sendData: jsonBody,
-        responseType: 'arraybuffer',
-      );
-      final bytes = xhr.response as ByteBuffer;
-      return (xhr.status, utf8.decode(bytes.asUint8List()));
-    } on html.ProgressEvent catch (e) {
-      final xhr = e.target as html.HttpRequest;
-      return (xhr.status, xhr.statusText ?? 'Unknown error');
-    }
-  }
-
-  /// Web 平台 HTTP GET（使用 dart:html 确保 UTF-8 解码正确）
-  Future<(int?, String)> _getJson(String urlStr, Map<String, String> headers) async {
-    try {
-      final xhr = await html.HttpRequest.request(
-        urlStr,
-        method: 'GET',
-        requestHeaders: headers,
-        responseType: 'arraybuffer',
-      );
-      final bytes = xhr.response as ByteBuffer;
-      return (xhr.status, utf8.decode(bytes.asUint8List()));
-    } on html.ProgressEvent catch (e) {
-      final xhr = e.target as html.HttpRequest;
-      return (xhr.status, xhr.statusText ?? 'Unknown error');
-    }
-  }
 
   @override
   String get modelId => AppConfig.deepseekModelIdInCoze;
@@ -152,7 +113,6 @@ class CozeStudioProvider extends BaseLlmProvider {
     };
 
     try {
-<<<<<<< HEAD
       final response = await _client.post(
         url,
         headers: _buildHeaders(usePAT: true),
@@ -160,17 +120,7 @@ class CozeStudioProvider extends BaseLlmProvider {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-=======
-      final (statusCode, bodyText) = await _postJson(
-        url.toString(),
-        _buildHeaders(usePAT: true),
-        jsonEncode(body),
-      );
-
-      if (statusCode == 200) {
-        final data = jsonDecode(bodyText);
->>>>>>> 35d3b57
+        final data = jsonDecode(response.body);
         final convId = data['data']?['id'];
         if (convId != null) {
           _conversationId = convId.toString();
@@ -228,34 +178,19 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-<<<<<<< HEAD
     final response = await _client.post(
       url,
       headers: _buildHeaders(usePAT: true),
       body: jsonEncode(body),
-=======
-    final (statusCode, bodyText) = await _postJson(
-      url.toString(),
-      _buildHeaders(usePAT: true),
-      jsonEncode(body),
->>>>>>> 35d3b57
     );
 
     final latency = DateTime.now().difference(startTime).inMilliseconds.toDouble();
 
-<<<<<<< HEAD
     if (response.statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${utf8.decode(response.bodyBytes)}');
+      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${response.body}');
     }
 
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
-=======
-    if (statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: $statusCode $bodyText');
-    }
-
-    final data = jsonDecode(bodyText);
->>>>>>> 35d3b57
+    final data = jsonDecode(response.body);
     final chatData = data['data'] ?? data;
 
     // 提取回复内容
@@ -327,163 +262,116 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-<<<<<<< HEAD
-    // ── SSE 请求处理（兼容 Web 和 Native）──────────────────────────
-    // 使用 http.post 获取完整响应后解析 SSE 事件
-    // （http 包在 Flutter Web 中流式传输不稳定，改用一次性获取）
-    final headers = {
-=======
-    // ─ SSE 请求处理（Web 平台使用 dart:html 确保 UTF-8 编码）────────
-    // http 包在 Flutter Web 中使用 XHR responseType='text'，
-    // response.bodyBytes 可能为空，且 response.body 可能按 latin-1 解码，
-    // 改用 dart:html HttpRequest 获取 ArrayBuffer 后手动 UTF-8 解码
-    final reqHeaders = {
->>>>>>> 35d3b57
+    final request = http.Request('POST', url);
+    request.headers.addAll({
       ..._buildHeaders(usePAT: true),
       'Accept': 'text/event-stream',
-    };
+    });
+    request.body = jsonEncode(body);
 
-<<<<<<< HEAD
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: jsonEncode(body),
+    final streamedResponse = await _client.send(request);
+
+    if (streamedResponse.statusCode != 200) {
+      final errorBody = await streamedResponse.stream.bytesToString();
+      throw Exception('Coze Studio 流式请求失败: ${streamedResponse.statusCode} $errorBody');
+    }
+
+    final controller = StreamController<LLMStreamChunk>();
+    final buffer = StringBuffer();
+
+    streamedResponse.stream
+        .transform(utf8.decoder)
+        .listen(
+      (data) {
+        buffer.write(data);
+        final content = buffer.toString();
+        final lines = content.split('\n');
+
+        // 保留最后一行（可能不完整）
+        if (lines.isNotEmpty && !lines.last.endsWith('\n')) {
+          buffer.clear();
+          buffer.write(lines.last);
+          lines.removeLast();
+        } else {
+          buffer.clear();
+        }
+
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty) continue;
+
+          // SSE 格式: "event: xxx\ndata: {...}\n\n"
+          if (trimmed.startsWith('data:')) {
+            final jsonStr = trimmed.substring(5).trim();
+            if (jsonStr.isEmpty) continue;
+
+            try {
+              final event = jsonDecode(jsonStr);
+              final eventType = _parseSSEEventType(event);
+
+              switch (eventType) {
+                case CozeSSEEventType.messageDelta:
+                  // 增量内容
+                  final deltaContent = event['content'] as String? ?? '';
+                  if (deltaContent.isNotEmpty) {
+                    controller.add(LLMStreamChunk(content: deltaContent));
+                  }
+                  break;
+
+                case CozeSSEEventType.messageCompleted:
+                  // 消息完成
+                  final fullContent = event['content'] as String? ?? '';
+                  controller.add(LLMStreamChunk(
+                    content: '',
+                    isDone: true,
+                    finishReason: 'stop',
+                  ));
+                  break;
+
+                case CozeSSEEventType.chatCompleted:
+                  // 对话完成
+                  controller.add(const LLMStreamChunk(
+                    content: '',
+                    isDone: true,
+                    finishReason: 'stop',
+                  ));
+                  break;
+
+                case CozeSSEEventType.error:
+                  final errorMsg = event['message'] ?? event['msg'] ?? '未知错误';
+                  controller.addError(Exception('Coze Studio 错误: $errorMsg'));
+                  break;
+
+                case CozeSSEEventType.done:
+                  controller.add(const LLMStreamChunk(
+                    content: '',
+                    isDone: true,
+                    finishReason: 'stop',
+                  ));
+                  break;
+
+                default:
+                  break;
+              }
+            } catch (_) {
+              // 忽略 JSON 解析错误（可能是部分数据）
+            }
+          }
+        }
+      },
+      onError: (error) {
+        if (!controller.isClosed) {
+          controller.addError(error);
+        }
+      },
+      onDone: () {
+        if (!controller.isClosed) {
+          controller.close();
+        }
+      },
     );
 
-    if (response.statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${utf8.decode(response.bodyBytes)}');
-    }
-
-    // 从完整响应体解析 SSE 事件
-    // SSE 格式：event: xxx\ndata: {...}\n\n
-    // 需要同时捕获 event: 头和 data: 内容
-    // 注意：必须用 utf8.decode(bodyBytes) 而非 response.body，因为后端
-    // Content-Type 未声明 charset 时 http 包默认用 latin-1 解码会导致中文乱码
-    final bodyText = utf8.decode(response.bodyBytes);
-    final lines = bodyText.split('\n');
-    String? lastEventName; // 记录上一个 event: 头的名称
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-
-      // 捕获 event: 头
-      if (trimmed.startsWith('event:')) {
-        lastEventName = trimmed.substring(6).trim();
-        continue;
-      }
-
-      // 处理 data: 行
-      if (!trimmed.startsWith('data:')) continue;
-
-      final jsonStr = trimmed.substring(5).trim();
-      if (jsonStr.isEmpty) continue;
-
-      try {
-        final event = jsonDecode(jsonStr);
-        final eventType = _parseSSEEventType(event, lastEventName);
-        lastEventName = null; // 已消费，重置
-
-        switch (eventType) {
-          case CozeSSEEventType.messageDelta:
-            // http.post 模式：响应已全部缓冲，delta 仅用于保持流式感觉
-            // 但为避免与 messageCompleted 重复，这里不 yield content
-            // （ChatEngine 的 buffer 会在 messageCompleted 时收到完整内容）
-            break;
-
-          case CozeSSEEventType.messageCompleted:
-            // 只处理 answer 类型，过滤 follow_up / verbose 等内部消息
-            if (event['type'] == 'answer') {
-              final fullContent = event['content'] as String? ?? '';
-              if (fullContent.isNotEmpty) {
-                yield LLMStreamChunk(content: fullContent);
-              }
-            }
-            break;
-
-=======
-    String bodyText;
-    try {
-      final xhr = await html.HttpRequest.request(
-        url.toString(),
-        method: 'POST',
-        requestHeaders: reqHeaders,
-        sendData: jsonEncode(body),
-        responseType: 'arraybuffer',
-      );
-      final bytes = xhr.response as ByteBuffer;
-      bodyText = utf8.decode(bytes.asUint8List());
-    } on html.ProgressEvent catch (e) {
-      final xhr = e.target as html.HttpRequest;
-      throw Exception('Coze Studio 请求失败: ${xhr.status} ${xhr.statusText}');
-    }
-
-    final lines = bodyText.split('\n');
-    String? lastEventName; // 记录上一个 event: 头的名称
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-
-      // 捕获 event: 头
-      if (trimmed.startsWith('event:')) {
-        lastEventName = trimmed.substring(6).trim();
-        continue;
-      }
-
-      // 处理 data: 行
-      if (!trimmed.startsWith('data:')) continue;
-
-      final jsonStr = trimmed.substring(5).trim();
-      if (jsonStr.isEmpty) continue;
-
-      try {
-        final event = jsonDecode(jsonStr);
-        final eventType = _parseSSEEventType(event, lastEventName);
-        lastEventName = null; // 已消费，重置
-
-        switch (eventType) {
-          case CozeSSEEventType.messageDelta:
-            // http.post 模式：响应已全部缓冲，delta 仅用于保持流式感觉
-            // 但为避免与 messageCompleted 重复，这里不 yield content
-            // （ChatEngine 的 buffer 会在 messageCompleted 时收到完整内容）
-            break;
-
-          case CozeSSEEventType.messageCompleted:
-            // 只处理 answer 类型，过滤 follow_up / verbose 等内部消息
-            if (event['type'] == 'answer') {
-              final fullContent = event['content'] as String? ?? '';
-              if (fullContent.isNotEmpty) {
-                yield LLMStreamChunk(content: fullContent);
-              }
-            }
-            break;
-
->>>>>>> 35d3b57
-          case CozeSSEEventType.chatCompleted:
-          case CozeSSEEventType.done:
-            yield const LLMStreamChunk(
-              content: '',
-              isDone: true,
-              finishReason: 'stop',
-            );
-            return;
-
-          case CozeSSEEventType.error:
-            final errorMsg = event['message'] ?? event['msg'] ?? '未知错误';
-            throw Exception('Coze Studio 错误: $errorMsg');
-
-          default:
-            break;
-        }
-      } catch (e) {
-        if (e is Exception) rethrow;
-        // 忽略 JSON 解析错误
-      }
-    }
-
-    // 如果遍历完所有事件仍未返回，发送完成信号
-    yield const LLMStreamChunk(content: '', isDone: true, finishReason: 'stop');
+    yield* controller.stream;
   }
 
   // ==========================================================================
@@ -532,18 +420,9 @@ class CozeStudioProvider extends BaseLlmProvider {
     );
 
     try {
-<<<<<<< HEAD
       final response = await _client.get(url, headers: _buildHeaders(usePAT: true));
       if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-=======
-      final (statusCode, bodyText) = await _getJson(
-        url.toString(),
-        _buildHeaders(usePAT: true),
-      );
-      if (statusCode == 200) {
-        final data = jsonDecode(bodyText);
->>>>>>> 35d3b57
+        final data = jsonDecode(response.body);
         final messagesList = data['data']?['messages'] as List? ?? [];
         return messagesList
             .map((m) => Map<String, dynamic>.from(m as Map))
@@ -554,15 +433,12 @@ class CozeStudioProvider extends BaseLlmProvider {
   }
 
   /// 解析 SSE 事件类型
-  CozeSSEEventType _parseSSEEventType(Map<String, dynamic> event, String? eventName) {
-    // 优先使用 SSE event: 头（非流式模式下 JSON 中不含 event 字段）
-    final effectiveEvent = eventName ?? (event['event'] as String? ?? '');
-    final lowerEvent = effectiveEvent.toLowerCase();
+  CozeSSEEventType _parseSSEEventType(Map<String, dynamic> event) {
+    final eventStr = event['event'] as String? ?? '';
+    final lowerEvent = eventStr.toLowerCase();
 
     if (lowerEvent.contains('conversation.created') || lowerEvent.contains('conversation.chat.created')) {
       return CozeSSEEventType.conversationCreated;
-    } else if (lowerEvent.contains('in_progress') && !lowerEvent.contains('message')) {
-      return CozeSSEEventType.conversationInProgress;
     } else if (lowerEvent.contains('message.delta') || lowerEvent.contains('conversation.message.delta')) {
       return CozeSSEEventType.messageDelta;
     } else if (lowerEvent.contains('message.completed') || lowerEvent.contains('conversation.message.completed')) {
