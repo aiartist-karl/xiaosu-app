@@ -6,9 +6,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
 import '../../config/app_config.dart';
 import '../gateway/credential_manager.dart';
 import 'llm_provider.dart';
@@ -63,42 +64,6 @@ class CozeStudioProvider extends BaseLlmProvider {
   @override
   String get providerId => 'coze_studio';
 
-  /// Web 平台 HTTP POST（使用 dart:html 确保 UTF-8 解码正确）
-  /// 返回 (statusCode, bodyText)
-  Future<(int?, String)> _postJson(String urlStr, Map<String, String> headers, String jsonBody) async {
-    try {
-      final xhr = await html.HttpRequest.request(
-        urlStr,
-        method: 'POST',
-        requestHeaders: headers,
-        sendData: jsonBody,
-        responseType: 'arraybuffer',
-      );
-      final bytes = xhr.response as ByteBuffer;
-      return (xhr.status, utf8.decode(bytes.asUint8List()));
-    } on html.ProgressEvent catch (e) {
-      final xhr = e.target as html.HttpRequest;
-      return (xhr.status, xhr.statusText ?? 'Unknown error');
-    }
-  }
-
-  /// Web 平台 HTTP GET（使用 dart:html 确保 UTF-8 解码正确）
-  Future<(int?, String)> _getJson(String urlStr, Map<String, String> headers) async {
-    try {
-      final xhr = await html.HttpRequest.request(
-        urlStr,
-        method: 'GET',
-        requestHeaders: headers,
-        responseType: 'arraybuffer',
-      );
-      final bytes = xhr.response as ByteBuffer;
-      return (xhr.status, utf8.decode(bytes.asUint8List()));
-    } on html.ProgressEvent catch (e) {
-      final xhr = e.target as html.HttpRequest;
-      return (xhr.status, xhr.statusText ?? 'Unknown error');
-    }
-  }
-
   @override
   String get modelId => AppConfig.deepseekModelIdInCoze;
 
@@ -127,6 +92,68 @@ class CozeStudioProvider extends BaseLlmProvider {
   bool get isAuthenticated => _sessionKey != null && _sessionKey!.isNotEmpty;
 
   // ==========================================================================
+  // 平台感知 HTTP 方法（解决 Flutter Web http包 bodyBytes 为空/编码错误问题）
+  // Web 端：dart:html HttpRequest + arraybuffer → 手动 utf8.decode
+  // Native 端：http.Client
+  // ==========================================================================
+
+  /// POST JSON 请求，返回 (statusCode, bodyText)
+  Future<(int?, String)> _postJson(
+    Uri url, {
+    required Map<String, String> headers,
+    required String body,
+    String acceptHeader = 'application/json',
+  }) async {
+    if (kIsWeb) {
+      final xhr = html.HttpRequest.request(
+        url.toString(),
+        method: 'POST',
+        requestHeaders: {
+          ...headers,
+          'Accept': acceptHeader,
+        },
+        sendData: body,
+        responseType: 'arraybuffer',
+      );
+      final resp = await xhr;
+      final bytes = Uint8List.view(resp.response as ByteBuffer);
+      final text = utf8.decode(bytes, allowMalformed: true);
+      return (resp.status, text);
+    } else {
+      final resp = await _client.post(url, headers: headers, body: body);
+      final text = utf8.decode(resp.bodyBytes, allowMalformed: true);
+      return (resp.statusCode, text);
+    }
+  }
+
+  /// GET JSON 请求，返回 (statusCode, bodyText)
+  Future<(int?, String)> _getJson(
+    Uri url, {
+    required Map<String, String> headers,
+    String acceptHeader = 'application/json',
+  }) async {
+    if (kIsWeb) {
+      final xhr = html.HttpRequest.request(
+        url.toString(),
+        method: 'GET',
+        requestHeaders: {
+          ...headers,
+          'Accept': acceptHeader,
+        },
+        responseType: 'arraybuffer',
+      );
+      final resp = await xhr;
+      final bytes = Uint8List.view(resp.response as ByteBuffer);
+      final text = utf8.decode(bytes, allowMalformed: true);
+      return (resp.status, text);
+    } else {
+      final resp = await _client.get(url, headers: headers);
+      final text = utf8.decode(resp.bodyBytes, allowMalformed: true);
+      return (resp.statusCode, text);
+    }
+  }
+
+  // ==========================================================================
   // 会话管理
   // ==========================================================================
 
@@ -152,25 +179,14 @@ class CozeStudioProvider extends BaseLlmProvider {
     };
 
     try {
-<<<<<<< HEAD
-      final response = await _client.post(
+      final (status, bodyText) = await _postJson(
         url,
         headers: _buildHeaders(usePAT: true),
         body: jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-=======
-      final (statusCode, bodyText) = await _postJson(
-        url.toString(),
-        _buildHeaders(usePAT: true),
-        jsonEncode(body),
-      );
-
-      if (statusCode == 200) {
+      if (status == 200) {
         final data = jsonDecode(bodyText);
->>>>>>> 35d3b57
         final convId = data['data']?['id'];
         if (convId != null) {
           _conversationId = convId.toString();
@@ -228,34 +244,19 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-<<<<<<< HEAD
-    final response = await _client.post(
+    final (statusCode, responseText) = await _postJson(
       url,
       headers: _buildHeaders(usePAT: true),
       body: jsonEncode(body),
-=======
-    final (statusCode, bodyText) = await _postJson(
-      url.toString(),
-      _buildHeaders(usePAT: true),
-      jsonEncode(body),
->>>>>>> 35d3b57
     );
 
     final latency = DateTime.now().difference(startTime).inMilliseconds.toDouble();
 
-<<<<<<< HEAD
-    if (response.statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${utf8.decode(response.bodyBytes)}');
-    }
-
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
-=======
     if (statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: $statusCode $bodyText');
+      throw Exception('Coze Studio 请求失败: $statusCode $responseText');
     }
 
-    final data = jsonDecode(bodyText);
->>>>>>> 35d3b57
+    final data = jsonDecode(responseText);
     final chatData = data['data'] ?? data;
 
     // 提取回复内容
@@ -327,39 +328,26 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-<<<<<<< HEAD
     // ── SSE 请求处理（兼容 Web 和 Native）──────────────────────────
-    // 使用 http.post 获取完整响应后解析 SSE 事件
-    // （http 包在 Flutter Web 中流式传输不稳定，改用一次性获取）
+    // Web 端：dart:html HttpRequest + arraybuffer，手动 utf8.decode
+    // Native 端：http.Client.post + utf8.decode(bodyBytes)
     final headers = {
-=======
-    // ─ SSE 请求处理（Web 平台使用 dart:html 确保 UTF-8 编码）────────
-    // http 包在 Flutter Web 中使用 XHR responseType='text'，
-    // response.bodyBytes 可能为空，且 response.body 可能按 latin-1 解码，
-    // 改用 dart:html HttpRequest 获取 ArrayBuffer 后手动 UTF-8 解码
-    final reqHeaders = {
->>>>>>> 35d3b57
       ..._buildHeaders(usePAT: true),
       'Accept': 'text/event-stream',
     };
 
-<<<<<<< HEAD
-    final response = await http.post(
+    final (statusCode, bodyText) = await _postJson(
       url,
       headers: headers,
       body: jsonEncode(body),
+      acceptHeader: 'text/event-stream',
     );
 
-    if (response.statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${utf8.decode(response.bodyBytes)}');
+    if (statusCode != 200) {
+      throw Exception('Coze Studio 请求失败: $statusCode $bodyText');
     }
 
     // 从完整响应体解析 SSE 事件
-    // SSE 格式：event: xxx\ndata: {...}\n\n
-    // 需要同时捕获 event: 头和 data: 内容
-    // 注意：必须用 utf8.decode(bodyBytes) 而非 response.body，因为后端
-    // Content-Type 未声明 charset 时 http 包默认用 latin-1 解码会导致中文乱码
-    final bodyText = utf8.decode(response.bodyBytes);
     final lines = bodyText.split('\n');
     String? lastEventName; // 记录上一个 event: 头的名称
 
@@ -401,65 +389,6 @@ class CozeStudioProvider extends BaseLlmProvider {
             }
             break;
 
-=======
-    String bodyText;
-    try {
-      final xhr = await html.HttpRequest.request(
-        url.toString(),
-        method: 'POST',
-        requestHeaders: reqHeaders,
-        sendData: jsonEncode(body),
-        responseType: 'arraybuffer',
-      );
-      final bytes = xhr.response as ByteBuffer;
-      bodyText = utf8.decode(bytes.asUint8List());
-    } on html.ProgressEvent catch (e) {
-      final xhr = e.target as html.HttpRequest;
-      throw Exception('Coze Studio 请求失败: ${xhr.status} ${xhr.statusText}');
-    }
-
-    final lines = bodyText.split('\n');
-    String? lastEventName; // 记录上一个 event: 头的名称
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-
-      // 捕获 event: 头
-      if (trimmed.startsWith('event:')) {
-        lastEventName = trimmed.substring(6).trim();
-        continue;
-      }
-
-      // 处理 data: 行
-      if (!trimmed.startsWith('data:')) continue;
-
-      final jsonStr = trimmed.substring(5).trim();
-      if (jsonStr.isEmpty) continue;
-
-      try {
-        final event = jsonDecode(jsonStr);
-        final eventType = _parseSSEEventType(event, lastEventName);
-        lastEventName = null; // 已消费，重置
-
-        switch (eventType) {
-          case CozeSSEEventType.messageDelta:
-            // http.post 模式：响应已全部缓冲，delta 仅用于保持流式感觉
-            // 但为避免与 messageCompleted 重复，这里不 yield content
-            // （ChatEngine 的 buffer 会在 messageCompleted 时收到完整内容）
-            break;
-
-          case CozeSSEEventType.messageCompleted:
-            // 只处理 answer 类型，过滤 follow_up / verbose 等内部消息
-            if (event['type'] == 'answer') {
-              final fullContent = event['content'] as String? ?? '';
-              if (fullContent.isNotEmpty) {
-                yield LLMStreamChunk(content: fullContent);
-              }
-            }
-            break;
-
->>>>>>> 35d3b57
           case CozeSSEEventType.chatCompleted:
           case CozeSSEEventType.done:
             yield const LLMStreamChunk(
@@ -532,18 +461,12 @@ class CozeStudioProvider extends BaseLlmProvider {
     );
 
     try {
-<<<<<<< HEAD
-      final response = await _client.get(url, headers: _buildHeaders(usePAT: true));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-=======
-      final (statusCode, bodyText) = await _getJson(
-        url.toString(),
-        _buildHeaders(usePAT: true),
+      final (status, bodyText) = await _getJson(
+        url,
+        headers: _buildHeaders(usePAT: true),
       );
-      if (statusCode == 200) {
+      if (status == 200) {
         final data = jsonDecode(bodyText);
->>>>>>> 35d3b57
         final messagesList = data['data']?['messages'] as List? ?? [];
         return messagesList
             .map((m) => Map<String, dynamic>.from(m as Map))
