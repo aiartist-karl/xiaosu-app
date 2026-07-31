@@ -105,8 +105,6 @@ class CozeStudioProvider extends BaseLlmProvider {
     String acceptHeader = 'application/json',
   }) async {
     if (kIsWeb) {
-      // 用 blob responseType 获取原始字节，避免浏览器默认 Latin-1 解码
-      final completer = Completer<String>();
       final xhr = html.HttpRequest();
       xhr.open('POST', url.toString());
       xhr.responseType = 'blob';
@@ -114,26 +112,31 @@ class CozeStudioProvider extends BaseLlmProvider {
         xhr.setRequestHeader(entry.key, entry.value);
       }
       xhr.setRequestHeader('Accept', acceptHeader);
-      xhr.onLoad.listen((_) {
-        final blob = xhr.response as html.Blob;
-        final reader = html.FileReader();
-        reader.onLoadEnd.listen((_) {
-          final text = reader.result as String;
-          completer.complete(text);
-        });
-        reader.readAsText(blob, 'utf-8');
-      });
-      xhr.onError.listen((_) {
-        completer.completeError(Exception('HTTP request failed'));
-      });
+      final loadFuture = xhr.onLoad.first;
       xhr.send(body);
-      final text = await completer.future;
+      await loadFuture;
+      final blob = xhr.response as html.Blob;
+      final text = await _readBlobAsText(blob);
       return (xhr.status, text);
     } else {
       final resp = await _client.post(url, headers: headers, body: body);
       final text = utf8.decode(resp.bodyBytes, allowMalformed: true);
       return (resp.statusCode, text);
     }
+  }
+
+  /// 将 Blob 读取为 UTF-8 文本
+  Future<String> _readBlobAsText(html.Blob blob) {
+    final completer = Completer<String>();
+    final reader = html.FileReader();
+    reader.onLoadEnd.listen((_) {
+      completer.complete(reader.result as String? ?? '');
+    });
+    reader.onError.listen((_) {
+      completer.completeError(Exception('Failed to read blob as text'));
+    });
+    reader.readAsText(blob, 'utf-8');
+    return completer.future;
   }
 
   /// GET JSON 请求，返回 (statusCode, bodyText)
@@ -143,7 +146,6 @@ class CozeStudioProvider extends BaseLlmProvider {
     String acceptHeader = 'application/json',
   }) async {
     if (kIsWeb) {
-      final completer = Completer<String>();
       final xhr = html.HttpRequest();
       xhr.open('GET', url.toString());
       xhr.responseType = 'blob';
@@ -151,20 +153,11 @@ class CozeStudioProvider extends BaseLlmProvider {
         xhr.setRequestHeader(entry.key, entry.value);
       }
       xhr.setRequestHeader('Accept', acceptHeader);
-      xhr.onLoad.listen((_) {
-        final blob = xhr.response as html.Blob;
-        final reader = html.FileReader();
-        reader.onLoadEnd.listen((_) {
-          final text = reader.result as String;
-          completer.complete(text);
-        });
-        reader.readAsText(blob, 'utf-8');
-      });
-      xhr.onError.listen((_) {
-        completer.completeError(Exception('HTTP request failed'));
-      });
+      final loadFuture = xhr.onLoad.first;
       xhr.send();
-      final text = await completer.future;
+      await loadFuture;
+      final blob = xhr.response as html.Blob;
+      final text = await _readBlobAsText(blob);
       return (xhr.status, text);
     } else {
       final resp = await _client.get(url, headers: headers);
