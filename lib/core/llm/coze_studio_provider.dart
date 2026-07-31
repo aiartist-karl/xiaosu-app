@@ -6,6 +6,8 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:html' as html;
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../../config/app_config.dart';
 import '../gateway/credential_manager.dart';
@@ -61,6 +63,42 @@ class CozeStudioProvider extends BaseLlmProvider {
   @override
   String get providerId => 'coze_studio';
 
+  /// Web 平台 HTTP POST（使用 dart:html 确保 UTF-8 解码正确）
+  /// 返回 (statusCode, bodyText)
+  Future<(int?, String)> _postJson(String urlStr, Map<String, String> headers, String jsonBody) async {
+    try {
+      final xhr = await html.HttpRequest.request(
+        urlStr,
+        method: 'POST',
+        requestHeaders: headers,
+        sendData: jsonBody,
+        responseType: 'arraybuffer',
+      );
+      final bytes = xhr.response as ByteBuffer;
+      return (xhr.status, utf8.decode(bytes.asUint8List()));
+    } on html.ProgressEvent catch (e) {
+      final xhr = e.target as html.HttpRequest;
+      return (xhr.status, xhr.statusText ?? 'Unknown error');
+    }
+  }
+
+  /// Web 平台 HTTP GET（使用 dart:html 确保 UTF-8 解码正确）
+  Future<(int?, String)> _getJson(String urlStr, Map<String, String> headers) async {
+    try {
+      final xhr = await html.HttpRequest.request(
+        urlStr,
+        method: 'GET',
+        requestHeaders: headers,
+        responseType: 'arraybuffer',
+      );
+      final bytes = xhr.response as ByteBuffer;
+      return (xhr.status, utf8.decode(bytes.asUint8List()));
+    } on html.ProgressEvent catch (e) {
+      final xhr = e.target as html.HttpRequest;
+      return (xhr.status, xhr.statusText ?? 'Unknown error');
+    }
+  }
+
   @override
   String get modelId => AppConfig.deepseekModelIdInCoze;
 
@@ -114,14 +152,14 @@ class CozeStudioProvider extends BaseLlmProvider {
     };
 
     try {
-      final response = await _client.post(
-        url,
-        headers: _buildHeaders(usePAT: true),
-        body: jsonEncode(body),
+      final (statusCode, bodyText) = await _postJson(
+        url.toString(),
+        _buildHeaders(usePAT: true),
+        jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (statusCode == 200) {
+        final data = jsonDecode(bodyText);
         final convId = data['data']?['id'];
         if (convId != null) {
           _conversationId = convId.toString();
@@ -179,19 +217,19 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-    final response = await _client.post(
-      url,
-      headers: _buildHeaders(usePAT: true),
-      body: jsonEncode(body),
+    final (statusCode, bodyText) = await _postJson(
+      url.toString(),
+      _buildHeaders(usePAT: true),
+      jsonEncode(body),
     );
 
     final latency = DateTime.now().difference(startTime).inMilliseconds.toDouble();
 
-    if (response.statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${response.body}');
+    if (statusCode != 200) {
+      throw Exception('Coze Studio 请求失败: $statusCode $bodyText');
     }
 
-    final data = jsonDecode(response.body);
+    final data = jsonDecode(bodyText);
     final chatData = data['data'] ?? data;
 
     // 提取回复内容
@@ -263,28 +301,32 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-    // ── SSE 请求处理（兼容 Web 和 Native）──────────────────────────
-    // 使用 http.post 获取完整响应后解析 SSE 事件
-    // （http 包在 Flutter Web 中流式传输不稳定，改用一次性获取）
-    final headers = {
+    // ─ SSE 请求处理（Web 平台使用 dart:html 确保 UTF-8 编码）────────
+    // http 包在 Flutter Web 中使用 XHR responseType='text'，
+    // response.bodyBytes 可能为空，且 response.body 可能按 latin-1 解码，
+    // 改用 dart:html HttpRequest 获取 ArrayBuffer 后手动 UTF-8 解码
+    final reqHeaders = {
       ..._buildHeaders(usePAT: true),
       'Accept': 'text/event-stream',
     };
 
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: jsonEncode(body),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${response.body}');
+    String bodyText;
+    try {
+      final xhr = await html.HttpRequest.request(
+        url.toString(),
+        method: 'POST',
+        requestHeaders: reqHeaders,
+        sendData: jsonEncode(body),
+        responseType: 'arraybuffer',
+      );
+      final bytes = xhr.response as ByteBuffer;
+      bodyText = utf8.decode(bytes.asUint8List());
+    } on html.ProgressEvent catch (e) {
+      final xhr = e.target as html.HttpRequest;
+      throw Exception('Coze Studio 请求失败: ${xhr.status} ${xhr.statusText}');
     }
 
-    // 从完整响应体解析 SSE 事件
-    // SSE 格式：event: xxx\ndata: {...}\n\n
-    // 需要同时捕获 event: 头和 data: 内容
-    final lines = response.body.split('\n');
+    final lines = bodyText.split('\n');
     String? lastEventName; // 记录上一个 event: 头的名称
 
     for (final line in lines) {
@@ -397,9 +439,12 @@ class CozeStudioProvider extends BaseLlmProvider {
     );
 
     try {
-      final response = await _client.get(url, headers: _buildHeaders(usePAT: true));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final (statusCode, bodyText) = await _getJson(
+        url.toString(),
+        _buildHeaders(usePAT: true),
+      );
+      if (statusCode == 200) {
+        final data = jsonDecode(bodyText);
         final messagesList = data['data']?['messages'] as List? ?? [];
         return messagesList
             .map((m) => Map<String, dynamic>.from(m as Map))
