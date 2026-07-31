@@ -40,16 +40,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      final result = await _userRepo.getUserInfo();
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          if (result.success && result.data != null) {
-            _userInfo = result.data;
-          } else {
-            _error = result.error;
-          }
-        });
+      // 优先使用 ApiGateway 中保存的用户信息（Web 版无法调用单独的用户信息 API）
+      final currentUser = ApiGateway.instance.currentUser;
+      if (currentUser != null) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _userInfo = currentUser;
+          });
+        }
+      } else {
+        // 回退到调用 API（移动端）
+        final result = await _userRepo.getUserInfo();
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            if (result.success && result.data != null) {
+              _userInfo = result.data;
+            } else {
+              _error = result.error;
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -231,7 +243,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              '1500',
+              '0',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 36,
@@ -307,7 +319,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Column(
       children: [
         _menuItem(
-          Icons.diamond_outlined, 'Token 余额', '1500',
+          Icons.diamond_outlined, 'Token 余额', '0',
           isDark: isDark,
           isTop: true,
           isBottom: false,

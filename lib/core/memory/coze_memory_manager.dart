@@ -139,7 +139,6 @@ class CozeMemoryManager {
       try {
         final remoteResult = await _repo.searchMemory(
           query,
-          botId: _currentBotId,
           topK: topK,
         );
         if (remoteResult.success && remoteResult.data != null) {
@@ -201,17 +200,12 @@ class CozeMemoryManager {
   // ==========================================================================
 
   /// 获取远程记忆列表
-  Future<List<CozeMemory>> fetchRemoteMemories({
-    int page = 1,
-    int pageSize = 20,
-  }) async {
-    if (!_syncEnabled || _currentBotId == null) return [];
+  Future<List<CozeMemory>> fetchRemoteMemories() async {
+    if (!_syncEnabled) return [];
 
     try {
       final result = await _repo.fetchMemoryList(
         botId: _currentBotId,
-        page: page,
-        pageSize: pageSize,
       );
       return result.data ?? [];
     } catch (_) {
@@ -226,7 +220,7 @@ class CozeMemoryManager {
     if (_syncEnabled && _currentBotId != null) {
       try {
         // 获取所有远程记忆并逐一删除
-        final allRemote = await fetchRemoteMemories(pageSize: 100);
+        final allRemote = await fetchRemoteMemories();
         for (final mem in allRemote) {
           await _repo.deleteMemory(mem.id);
         }

@@ -25,19 +25,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
   int? _memoryCount;
   bool _loadingCards = true;
 
-  /// 最近文件（模拟数据占位，后续对接 API）
-  final List<_RecentFile> _recentFiles = [
-    _RecentFile('产品需求文档 v3.pdf', '今天 14:30', Icons.picture_as_pdf, Color(0xFFEF4444)),
-    _RecentFile('Q2 运营数据.xlsx', '今天 10:15', Icons.table_chart, Color(0xFF10B981)),
-    _RecentFile('会议纪要-0610.docx', '昨天 17:00', Icons.description, Color(0xFF3B82F6)),
-  ];
+  /// 最近文件（从API获取）
+  List<_RecentFile> _recentFiles = [];
 
-  /// 最近日程（模拟数据占位，后续对接 API）
-  final List<_RecentEvent> _recentEvents = [
-    _RecentEvent('今天 15:00', '产品评审会议'),
-    _RecentEvent('今天 17:30', '与设计团队同步'),
-    _RecentEvent('明天 10:00', '周报撰写'),
-  ];
+  /// 最近日程（从API获取）
+  List<_RecentEvent> _recentEvents = [];
 
   @override
   void initState() {
@@ -96,7 +88,23 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
               // TODO: navigate to full file list
             }),
             const SizedBox(height: 8),
-            _buildRecentFileList(isDark),
+            _loadingCards
+                ? const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+                : _recentFiles.isEmpty
+                    ? Container(
+                        padding: const EdgeInsets.all(40),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface(isDark),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '暂无文件',
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
+                          ),
+                        ),
+                      )
+                    : _buildRecentFileList(isDark),
             const SizedBox(height: 24),
 
             // ─── 最近日程 ───
@@ -104,7 +112,23 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
               context.pushNamed('workbench-schedule');
             }),
             const SizedBox(height: 8),
-            _buildRecentEventList(isDark),
+            _loadingCards
+                ? const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+                : _recentEvents.isEmpty
+                    ? Container(
+                        padding: const EdgeInsets.all(40),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface(isDark),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '暂无日程',
+                            style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
+                          ),
+                        ),
+                      )
+                    : _buildRecentEventList(isDark),
           ],
         ),
       ),
@@ -121,7 +145,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
               child: _entryCard(
                 emoji: '📁',
                 label: '文件',
-                subtitle: _loadingCards ? '加载中...' : '25.3/50GB',
+                subtitle: _loadingCards ? '加载中...' : '${_fileCount ?? 0} 个文件',
                 color: AppColors.info(isDark),
                 isDark: isDark,
                 onTap: () => context.pushNamed('workbench-files'),
@@ -132,7 +156,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
               child: _entryCard(
                 emoji: '📅',
                 label: '日程',
-                subtitle: '今日3项',
+                subtitle: _loadingCards ? '加载中...' : '今日${_recentEvents.length}项',
                 color: AppColors.success(isDark),
                 isDark: isDark,
                 onTap: () => context.pushNamed('workbench-schedule'),
@@ -147,7 +171,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
               child: _entryCard(
                 emoji: '📋',
                 label: '项目',
-                subtitle: '2个进行中',
+                subtitle: _loadingCards ? '加载中...' : '0个进行中',
                 color: AppColors.secondary(isDark),
                 isDark: isDark,
                 onTap: () => context.pushNamed('workbench-project'),
@@ -221,7 +245,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '云电脑 2台 · 云手机 2台 · 2台在线',
+                    _loadingCards ? '加载中...' : '暂无云设备',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary(isDark),

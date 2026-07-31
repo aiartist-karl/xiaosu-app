@@ -21,12 +21,10 @@ class MemoryRepository {
   final ApiGateway _api = ApiGateway.instance;
 
   // ==========================================================================
-  // API 路径常量
+  // API 路径常量（后端实际路径：/api/memory/*）
   // ==========================================================================
-  static const String _pathCreate = '/v3/memory/create';
-  static const String _pathList = '/v3/memory/list';
-  static const String _pathDelete = '/v3/memory/delete';
-  static const String _pathSearch = '/v3/memory/search';
+  static const String _pathList = '/api/memory/list';
+  static const String _pathSearch = '/api/memory/search';
 
   // ==========================================================================
   // 本地记忆操作（保留原有功能）
@@ -70,65 +68,30 @@ class MemoryRepository {
   // ==========================================================================
 
   /// 创建远程记忆
-  ///
-  /// POST /v3/memory/create
-  /// Body: { content, tags[], bot_id?, type? }
+  /// 注意：后端 /api/memory 暂无公开创建接口，此方法暂存待实现
   Future<ApiResponse<CozeMemory>> createMemory(
     String content, {
     List<String> tags = const [],
     String? botId,
     CozeMemoryType type = CozeMemoryType.longTerm,
   }) async {
-    try {
-      final body = <String, dynamic>{
-        'content': content,
-        'tags': tags,
-        'type': type.name,
-      };
-      if (botId != null) body['bot_id'] = botId;
-
-      final response = await _api.post(
-        _pathCreate,
-        body: body,
-        authType: CozeAuthType.session,
-      );
-
-      if (!response.success) {
-        return ApiResponse.fail(response.error ?? '创建记忆失败',
-            statusCode: response.statusCode);
-      }
-
-      final data = response.data;
-      if (data == null) {
-        return ApiResponse.fail('响应数据为空');
-      }
-
-      final memoryData = data['memory'] as Map<String, dynamic>? ?? data;
-      return ApiResponse.ok(CozeMemory.fromJson(memoryData));
-    } catch (e) {
-      return ApiResponse.fail('创建记忆异常: ${e.toString()}');
-    }
+    return ApiResponse.fail('创建远程记忆接口暂未实现');
   }
 
   /// 获取远程记忆列表
   ///
-  /// GET /v3/memory/list
-  /// Query: bot_id, page, page_size
+  /// GET /api/memory/list
+  /// Query: bot_id (可选)
   Future<ApiResponse<List<CozeMemory>>> fetchMemoryList({
     String? botId,
-    int page = 1,
-    int pageSize = 20,
   }) async {
     try {
-      final queryParams = <String, String>{
-        'page': page.toString(),
-        'page_size': pageSize.toString(),
-      };
+      final queryParams = <String, String>{};
       if (botId != null) queryParams['bot_id'] = botId;
 
       final response = await _api.get(
         _pathList,
-        queryParams: queryParams,
+        queryParams: queryParams.isNotEmpty ? queryParams : null,
         authType: CozeAuthType.session,
       );
 
@@ -142,7 +105,8 @@ class MemoryRepository {
         return ApiResponse.ok(const []);
       }
 
-      final memoriesRaw = data['memories'] ?? data['data'];
+      // 后端返回格式可能是 { memories: [...] } 或直接数组
+      final memoriesRaw = data['memories'] ?? data['data'] ?? data;
       if (memoriesRaw is! List) {
         return ApiResponse.ok(const []);
       }
@@ -160,13 +124,11 @@ class MemoryRepository {
 
   /// 删除远程记忆
   ///
-  /// DELETE /v3/memory/delete
-  /// Query: memory_id
+  /// DELETE /api/memory/:id
   Future<ApiResponse<void>> deleteMemory(String memoryId) async {
     try {
       final response = await _api.delete(
-        _pathDelete,
-        headers: {'Content-Type': 'application/json'},
+        '/api/memory/$memoryId',
         authType: CozeAuthType.session,
       );
 
@@ -183,11 +145,10 @@ class MemoryRepository {
 
   /// 搜索远程记忆
   ///
-  /// POST /v3/memory/search
-  /// Body: { query, bot_id?, top_k? }
+  /// POST /api/memory/search
+  /// Body: { query, top_k? }
   Future<ApiResponse<List<CozeMemory>>> searchMemory(
     String query, {
-    String? botId,
     int topK = 10,
   }) async {
     try {
@@ -195,7 +156,6 @@ class MemoryRepository {
         'query': query,
         'top_k': topK,
       };
-      if (botId != null) body['bot_id'] = botId;
 
       final response = await _api.post(
         _pathSearch,
@@ -229,14 +189,12 @@ class MemoryRepository {
     }
   }
 
-  /// 同步记忆：先搜索本地，再查询远程，合并结果
+  /// 同步记忆：搜索远程记忆
   Future<List<CozeMemory>> searchAll(
     String query, {
-    String? botId,
-    int localTopK = 5,
-    int remoteTopK = 5,
+    int remoteTopK = 10,
   }) async {
-    final remoteResult = await searchMemory(query, botId: botId, topK: remoteTopK);
+    final remoteResult = await searchMemory(query, topK: remoteTopK);
     return remoteResult.data ?? [];
   }
 }

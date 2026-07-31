@@ -4,8 +4,10 @@
 // ============================================================================
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import '../../config/app_config.dart';
+import '../../data/models/user_model.dart';
 import 'credential_manager.dart';
 
 /// API响应封装
@@ -40,24 +42,30 @@ class ApiGateway {
   ApiGateway._();
 
   final http.Client _client = http.Client();
-  final String _baseUrl = AppConfig.serverHost;
+  final String _baseUrl = kIsWeb ? AppConfig.cozeStudioHost : AppConfig.cozeStudioHostMobile;
   int _retryCount = 3;
 
   // 认证凭证
   String? _sessionKey;
   String? _patToken;
+  CozeUserInfo? _currentUser;
 
   // ==========================================================================
   // 认证管理
   // ==========================================================================
 
-  /// 初始化：从 CredentialManager 恢复 Session Key
+  /// 初始化：从 CredentialManager 恢复 Session Key + PAT Token
   /// 应用启动时调用
   Future<void> init() async {
     final savedSession = await CredentialManager.instance.getCozeSessionKey();
     if (savedSession != null && savedSession.isNotEmpty) {
       _sessionKey = savedSession;
+    } else {
+      // 使用默认 session key（过期后需重新登录）
+      _sessionKey = AppConfig.defaultSessionKey;
     }
+    // 始终设置 PAT Token（硬编码，用于 v3/v1 OpenAPI）
+    _patToken = AppConfig.patToken;
   }
 
   /// 设置 Session Key（用于内部 /api/ 接口 + OpenAPI）
@@ -69,6 +77,14 @@ class ApiGateway {
 
   /// 获取当前 Session Key
   String? get sessionKey => _sessionKey;
+
+  /// 获取当前用户信息
+  CozeUserInfo? get currentUser => _currentUser;
+
+  /// 设置当前用户信息（从登录响应中保存）
+  void setCurrentUser(CozeUserInfo user) {
+    _currentUser = user;
+  }
 
   /// 设置 PAT Token（用于 OpenAPI v1/v3，兼容旧接口）
   void setPatToken(String token) {
@@ -82,6 +98,7 @@ class ApiGateway {
   Future<void> logout() async {
     _patToken = null;
     _sessionKey = null;
+    _currentUser = null;
     await CredentialManager.instance.clearCozeAuth();
   }
 
@@ -89,10 +106,13 @@ class ApiGateway {
   void clearAuth() {
     _patToken = null;
     _sessionKey = null;
+    _currentUser = null;
   }
 
-  /// 检查是否已认证（优先 session，兼容 pat）
-  bool get isAuthenticated => _sessionKey != null && _sessionKey!.isNotEmpty;
+  /// 检查是否已认证（优先 session，兼容 pat，Web 版通过 currentUser 判断）
+  bool get isAuthenticated =>
+      (_sessionKey != null && _sessionKey!.isNotEmpty) ||
+      (kIsWeb && _currentUser != null);
 
   /// 设置重试次数
   void setRetryCount(int count) => _retryCount = count;
@@ -206,6 +226,18 @@ class ApiGateway {
         final data = response.body.isNotEmpty
             ? jsonDecode(response.body) as Map<String, dynamic>
             : <String, dynamic>{};
+
+        // 保存登录返回的用户信息
+        final userData = data['data'] as Map<String, dynamic>?;
+        if (userData != null) {
+          _currentUser = CozeUserInfo(
+            userId: userData['user_id_str'] as String? ?? '',
+            name: userData['name'] as String? ?? userData['screen_name'] as String? ?? '用户',
+            avatar: userData['avatar_url'] as String?,
+            email: userData['email'] as String?,
+          );
+        }
+
         return ApiResponse.ok(data);
       } else {
         return ApiResponse.fail(
@@ -238,7 +270,8 @@ class ApiGateway {
         }
         break;
       case CozeAuthType.session:
-        if (_sessionKey != null) {
+        // 手动发送 Cookie（Flutter Web 的 http 包不会自动管理 Cookie）
+        if (_sessionKey != null && _sessionKey!.isNotEmpty) {
           headers['Cookie'] = 'session_key=$_sessionKey';
         }
         break;

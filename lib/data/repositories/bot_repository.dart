@@ -43,7 +43,7 @@ class BotRepository {
       final response = await _api.get(
         AppConfig.v1BotList,
         queryParams: queryParams,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -79,7 +79,7 @@ class BotRepository {
     try {
       final response = await _api.get(
         '/v1/bots/$botId',
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -111,7 +111,7 @@ class BotRepository {
       final response = await _api.post(
         '/v1/bots',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -142,7 +142,7 @@ class BotRepository {
       final response = await _api.put(
         '/v1/bots/$botId',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -183,7 +183,7 @@ class BotRepository {
       final response = await _api.post(
         '/v1/bots/publish',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -231,7 +231,7 @@ class BotRepository {
       final response = await _api.get(
         AppConfig.v1BotList.replaceAll('/list', '/get_online_info'),
         queryParams: {'bot_id': botId},
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {

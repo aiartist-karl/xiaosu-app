@@ -53,11 +53,14 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
-      if (result.success && ApiGateway.instance.sessionKey != null) {
-        // 保存 session key 到 CredentialManager
-        await CredentialManager.instance.saveCozeSessionKey(
-          ApiGateway.instance.sessionKey!,
-        );
+      // Web 版无法读取 HttpOnly cookie，只要 API 返回成功就认为登录成功
+      if (result.success) {
+        // 保存 session key 到 CredentialManager（Web 版可能为 null，浏览器自动管理 cookie）
+        if (ApiGateway.instance.sessionKey != null) {
+          await CredentialManager.instance.saveCozeSessionKey(
+            ApiGateway.instance.sessionKey!,
+          );
+        }
 
         if (mounted) {
           // 登录成功，跳转到主页

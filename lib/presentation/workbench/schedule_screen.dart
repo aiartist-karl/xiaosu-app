@@ -27,29 +27,8 @@ class _ScheduleItem {
 class ScheduleScreen extends StatelessWidget {
   const ScheduleScreen({super.key});
 
-  static const List<_ScheduleItem> _schedules = [
-    _ScheduleItem(
-      time: '09:00',
-      title: '团队站会 - 同步项目进度',
-      status: '已完成',
-      icon: Icons.groups,
-      color: Colors.green,
-    ),
-    _ScheduleItem(
-      time: '14:00',
-      title: 'Bot 工作流优化讨论',
-      status: '进行中',
-      icon: Icons.autorenew,
-      color: Colors.blue,
-    ),
-    _ScheduleItem(
-      time: '16:30',
-      title: '新功能需求评审',
-      status: '待开始',
-      icon: Icons.rate_review,
-      color: Colors.orange,
-    ),
-  ];
+  // TODO: 对接真实日程 API
+  static const List<_ScheduleItem> _schedules = [];
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +55,21 @@ class ScheduleScreen extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView.separated(
+            child: _schedules.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event_busy, size: 48, color: AppColors.textHint(isDark)),
+                        const SizedBox(height: 12),
+                        Text(
+                          '暂无日程',
+                          style: TextStyle(color: AppColors.textSecondary(isDark)),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _schedules.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),

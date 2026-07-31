@@ -90,14 +90,13 @@ class _TokenBalanceScreenState extends State<TokenBalanceScreen>
       _error = null;
     });
 
-    // 尝试获取用户信息（包含余额）
     try {
-      // 这里使用模拟数据，因为 API 可能不直接返回余额
+      // TODO: 对接真实 Token 余额 API
       await Future.delayed(const Duration(milliseconds: 500));
       setState(() {
         _isLoading = false;
-        _balance = 1500;
-        _totalUsed = 4295;
+        _balance = 0;
+        _totalUsed = 0;
       });
     } catch (e) {
       setState(() {
