@@ -22,18 +22,21 @@ enum CozeChatStatus {
 
 /// Coze Studio SSE 事件类型
 enum CozeSSEEventType {
-  conversationCreated, // Conversation.chat.created
-  chatCreated,         // Conversation.chat.created
-  messageDelta,        // Conversation.message.delta
-  messageCompleted,    // Conversation.message.completed
-  chatCompleted,       // Conversation.chat.completed
-  error,               // Error
-  done,                // Done
+  conversationCreated,    // Conversation.chat.created
+  conversationInProgress, // Conversation.chat.in_progress
+  chatCreated,            // Conversation.chat.created
+  messageDelta,           // Conversation.message.delta
+  messageCompleted,       // Conversation.message.completed
+  chatCompleted,          // Conversation.chat.completed
+  error,                  // Error
+  done,                   // Done
   unknown,
 }
 
 /// Coze Studio LLM Provider
 /// 通过 Coze Studio 的 /v3/chat 接口发送消息
+/// v3/v1 OpenAPI 使用 PAT Bearer Token 认证
+/// 内部 API 使用 Session Cookie 认证
 class CozeStudioProvider extends BaseLlmProvider {
   static final CozeStudioProvider instance = CozeStudioProvider._();
   CozeStudioProvider._();
@@ -102,7 +105,7 @@ class CozeStudioProvider extends BaseLlmProvider {
     _conversationId = null;
   }
 
-  /// 创建新的会话
+  /// 创建新的会话（v1 API，PAT 认证）
   Future<String?> createConversation() async {
     final url = Uri.parse('$_baseUrl${AppConfig.v1ConversationCreate}');
     final body = {
@@ -113,17 +116,17 @@ class CozeStudioProvider extends BaseLlmProvider {
     try {
       final response = await _client.post(
         url,
-        headers: _buildHeaders(),
+        headers: _buildHeaders(usePAT: true),
         body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final convId = data['data']?['id'] as String? ?? data['id'] as String?;
+        final convId = data['data']?['id'];
         if (convId != null) {
-          _conversationId = convId;
+          _conversationId = convId.toString();
         }
-        return convId;
+        return convId?.toString();
       }
     } catch (e) {
       // ignore
@@ -156,12 +159,12 @@ class CozeStudioProvider extends BaseLlmProvider {
 
     final startTime = DateTime.now();
 
-    // 调用 /v3/chat（非流式）
+    // 调用 /v3/chat（非流式）— PAT 认证
+    // 注意：bot_id 和 conversation_id 必须以字符串发送（Hertz JSON 绑定对 int64 有 bug）
     final url = Uri.parse('$_baseUrl${AppConfig.v3Chat}');
-    final body = {
+    final body = <String, dynamic>{
       'bot_id': _botId,
       'user_id': _userId,
-      'conversation_id': _conversationId,
       'additional_messages': [
         {
           'role': 'user',
@@ -172,10 +175,13 @@ class CozeStudioProvider extends BaseLlmProvider {
       'stream': false,
       ...?extraParams,
     };
+    if (_conversationId != null) {
+      body['conversation_id'] = _conversationId;
+    }
 
     final response = await _client.post(
       url,
-      headers: _buildHeaders(),
+      headers: _buildHeaders(usePAT: true),
       body: jsonEncode(body),
     );
 
@@ -237,12 +243,12 @@ class CozeStudioProvider extends BaseLlmProvider {
       await createConversation();
     }
 
-    // 调用 /v3/chat（流式 SSE）
+    // 调用 /v3/chat（流式 SSE）— PAT 认证
+    // bot_id / conversation_id 以字符串发送（Hertz JSON 绑定 bug）
     final url = Uri.parse('$_baseUrl${AppConfig.v3Chat}');
-    final body = {
+    final body = <String, dynamic>{
       'bot_id': _botId,
       'user_id': _userId,
-      'conversation_id': _conversationId,
       'additional_messages': [
         {
           'role': 'user',
@@ -253,129 +259,113 @@ class CozeStudioProvider extends BaseLlmProvider {
       'stream': true,
       ...?extraParams,
     };
-
-    final request = http.Request('POST', url);
-    request.headers.addAll({
-      ..._buildHeaders(),
-      'Accept': 'text/event-stream',
-    });
-    request.body = jsonEncode(body);
-
-    final streamedResponse = await _client.send(request);
-
-    if (streamedResponse.statusCode != 200) {
-      final errorBody = await streamedResponse.stream.bytesToString();
-      throw Exception('Coze Studio 流式请求失败: ${streamedResponse.statusCode} $errorBody');
+    if (_conversationId != null) {
+      body['conversation_id'] = _conversationId;
     }
 
-    final controller = StreamController<LLMStreamChunk>();
-    final buffer = StringBuffer();
+    // ── SSE 请求处理（兼容 Web 和 Native）──────────────────────────
+    // 使用 http.post 获取完整响应后解析 SSE 事件
+    // （http 包在 Flutter Web 中流式传输不稳定，改用一次性获取）
+    final headers = {
+      ..._buildHeaders(usePAT: true),
+      'Accept': 'text/event-stream',
+    };
 
-    streamedResponse.stream
-        .transform(utf8.decoder)
-        .listen(
-      (data) {
-        buffer.write(data);
-        final content = buffer.toString();
-        final lines = content.split('\n');
-
-        // 保留最后一行（可能不完整）
-        if (lines.isNotEmpty && !lines.last.endsWith('\n')) {
-          buffer.clear();
-          buffer.write(lines.last);
-          lines.removeLast();
-        } else {
-          buffer.clear();
-        }
-
-        for (final line in lines) {
-          final trimmed = line.trim();
-          if (trimmed.isEmpty) continue;
-
-          // SSE 格式: "event: xxx\ndata: {...}\n\n"
-          if (trimmed.startsWith('data:')) {
-            final jsonStr = trimmed.substring(5).trim();
-            if (jsonStr.isEmpty) continue;
-
-            try {
-              final event = jsonDecode(jsonStr);
-              final eventType = _parseSSEEventType(event);
-
-              switch (eventType) {
-                case CozeSSEEventType.messageDelta:
-                  // 增量内容
-                  final deltaContent = event['content'] as String? ?? '';
-                  if (deltaContent.isNotEmpty) {
-                    controller.add(LLMStreamChunk(content: deltaContent));
-                  }
-                  break;
-
-                case CozeSSEEventType.messageCompleted:
-                  // 消息完成
-                  final fullContent = event['content'] as String? ?? '';
-                  controller.add(LLMStreamChunk(
-                    content: '',
-                    isDone: true,
-                    finishReason: 'stop',
-                  ));
-                  break;
-
-                case CozeSSEEventType.chatCompleted:
-                  // 对话完成
-                  controller.add(const LLMStreamChunk(
-                    content: '',
-                    isDone: true,
-                    finishReason: 'stop',
-                  ));
-                  break;
-
-                case CozeSSEEventType.error:
-                  final errorMsg = event['message'] ?? event['msg'] ?? '未知错误';
-                  controller.addError(Exception('Coze Studio 错误: $errorMsg'));
-                  break;
-
-                case CozeSSEEventType.done:
-                  controller.add(const LLMStreamChunk(
-                    content: '',
-                    isDone: true,
-                    finishReason: 'stop',
-                  ));
-                  break;
-
-                default:
-                  break;
-              }
-            } catch (_) {
-              // 忽略 JSON 解析错误（可能是部分数据）
-            }
-          }
-        }
-      },
-      onError: (error) {
-        if (!controller.isClosed) {
-          controller.addError(error);
-        }
-      },
-      onDone: () {
-        if (!controller.isClosed) {
-          controller.close();
-        }
-      },
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode(body),
     );
 
-    yield* controller.stream;
+    if (response.statusCode != 200) {
+      throw Exception('Coze Studio 请求失败: ${response.statusCode} ${response.body}');
+    }
+
+    // 从完整响应体解析 SSE 事件
+    // SSE 格式：event: xxx\ndata: {...}\n\n
+    // 需要同时捕获 event: 头和 data: 内容
+    final lines = response.body.split('\n');
+    String? lastEventName; // 记录上一个 event: 头的名称
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+
+      // 捕获 event: 头
+      if (trimmed.startsWith('event:')) {
+        lastEventName = trimmed.substring(6).trim();
+        continue;
+      }
+
+      // 处理 data: 行
+      if (!trimmed.startsWith('data:')) continue;
+
+      final jsonStr = trimmed.substring(5).trim();
+      if (jsonStr.isEmpty) continue;
+
+      try {
+        final event = jsonDecode(jsonStr);
+        final eventType = _parseSSEEventType(event, lastEventName);
+        lastEventName = null; // 已消费，重置
+
+        switch (eventType) {
+          case CozeSSEEventType.messageDelta:
+            // http.post 模式：响应已全部缓冲，delta 仅用于保持流式感觉
+            // 但为避免与 messageCompleted 重复，这里不 yield content
+            // （ChatEngine 的 buffer 会在 messageCompleted 时收到完整内容）
+            break;
+
+          case CozeSSEEventType.messageCompleted:
+            // 只处理 answer 类型，过滤 follow_up / verbose 等内部消息
+            if (event['type'] == 'answer') {
+              final fullContent = event['content'] as String? ?? '';
+              if (fullContent.isNotEmpty) {
+                yield LLMStreamChunk(content: fullContent);
+              }
+            }
+            break;
+
+          case CozeSSEEventType.chatCompleted:
+          case CozeSSEEventType.done:
+            yield const LLMStreamChunk(
+              content: '',
+              isDone: true,
+              finishReason: 'stop',
+            );
+            return;
+
+          case CozeSSEEventType.error:
+            final errorMsg = event['message'] ?? event['msg'] ?? '未知错误';
+            throw Exception('Coze Studio 错误: $errorMsg');
+
+          default:
+            break;
+        }
+      } catch (e) {
+        if (e is Exception) rethrow;
+        // 忽略 JSON 解析错误
+      }
+    }
+
+    // 如果遍历完所有事件仍未返回，发送完成信号
+    yield const LLMStreamChunk(content: '', isDone: true, finishReason: 'stop');
   }
 
   // ==========================================================================
   // 内部方法
   // ==========================================================================
 
-  /// 构建认证头（使用 Session Cookie）
-  Map<String, String> _buildHeaders() {
+  /// 构建认证头
+  /// v3/v1 OpenAPI 使用 PAT Bearer Token；内部 API 使用 Session Cookie
+  Map<String, String> _buildHeaders({bool usePAT = true}) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
     };
-    if (_sessionKey != null) {
+    if (usePAT) {
+      // v3/v1 OpenAPI 使用 PAT Bearer Token 认证
+      headers['Authorization'] = 'Bearer ${AppConfig.patToken}';
+    } else if (_sessionKey != null) {
+      // 内部 API 使用 Session Cookie
       headers['Cookie'] = 'session_key=$_sessionKey';
     }
     return headers;
@@ -407,7 +397,7 @@ class CozeStudioProvider extends BaseLlmProvider {
     );
 
     try {
-      final response = await _client.get(url, headers: _buildHeaders());
+      final response = await _client.get(url, headers: _buildHeaders(usePAT: true));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final messagesList = data['data']?['messages'] as List? ?? [];
@@ -420,12 +410,15 @@ class CozeStudioProvider extends BaseLlmProvider {
   }
 
   /// 解析 SSE 事件类型
-  CozeSSEEventType _parseSSEEventType(Map<String, dynamic> event) {
-    final eventStr = event['event'] as String? ?? '';
-    final lowerEvent = eventStr.toLowerCase();
+  CozeSSEEventType _parseSSEEventType(Map<String, dynamic> event, String? eventName) {
+    // 优先使用 SSE event: 头（非流式模式下 JSON 中不含 event 字段）
+    final effectiveEvent = eventName ?? (event['event'] as String? ?? '');
+    final lowerEvent = effectiveEvent.toLowerCase();
 
     if (lowerEvent.contains('conversation.created') || lowerEvent.contains('conversation.chat.created')) {
       return CozeSSEEventType.conversationCreated;
+    } else if (lowerEvent.contains('in_progress') && !lowerEvent.contains('message')) {
+      return CozeSSEEventType.conversationInProgress;
     } else if (lowerEvent.contains('message.delta') || lowerEvent.contains('conversation.message.delta')) {
       return CozeSSEEventType.messageDelta;
     } else if (lowerEvent.contains('message.completed') || lowerEvent.contains('conversation.message.completed')) {
