@@ -371,6 +371,7 @@ class CozeStudioProvider extends BaseLlmProvider {
     final lines = bodyText.split('\n');
     String? lastEventName;
     final buffer = StringBuffer(); // 累积 delta 内容
+    bool deltaContentSent = false; // 是否已通过 delta 流式输出过内容
 
     for (final line in lines) {
       final trimmed = line.trim();
@@ -393,30 +394,34 @@ class CozeStudioProvider extends BaseLlmProvider {
 
         switch (eventType) {
           case CozeSSEEventType.messageDelta:
-            // 累积 delta 内容（Coze Studio completed 事件 content 为空）
+            // 流式输出 delta 内容 + 累积到 buffer 作兜底
             final deltaContent = event['content'] as String? ?? '';
             if (deltaContent.isNotEmpty) {
               buffer.write(deltaContent);
+              yield LLMStreamChunk(content: deltaContent);
+              deltaContentSent = true;
             }
             break;
 
           case CozeSSEEventType.messageCompleted:
-            // 优先用 completed 的 content（如果不为空），否则用 delta 累积的内容
-            final completedContent = event['content'] as String? ?? '';
-            final fullContent = completedContent.isNotEmpty
-                ? completedContent
-                : buffer.toString();
-            if (fullContent.isNotEmpty && event['type'] == 'answer') {
-              yield LLMStreamChunk(content: fullContent);
+            // 如果 delta 没有输出过内容，用 completed 的完整内容输出
+            if (!deltaContentSent) {
+              final completedContent = event['content'] as String? ?? '';
+              if (completedContent.isNotEmpty && event['type'] == 'answer') {
+                yield LLMStreamChunk(content: completedContent);
+                deltaContentSent = true;
+              }
             }
             break;
 
           case CozeSSEEventType.chatCompleted:
           case CozeSSEEventType.done:
-            // 兜底：如果 buffer 中有 delta 累积内容但未被 messageCompleted 输出
-            final remaining = buffer.toString();
-            if (remaining.isNotEmpty) {
-              yield LLMStreamChunk(content: remaining);
+            // 终极兜底：如果一直没有输出过内容，尝试用 buffer
+            if (!deltaContentSent) {
+              final remaining = buffer.toString();
+              if (remaining.isNotEmpty) {
+                yield LLMStreamChunk(content: remaining);
+              }
             }
             yield const LLMStreamChunk(
               content: '',
