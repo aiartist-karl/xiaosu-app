@@ -105,20 +105,30 @@ class CozeStudioProvider extends BaseLlmProvider {
     String acceptHeader = 'application/json',
   }) async {
     if (kIsWeb) {
-      final xhr = html.HttpRequest.request(
-        url.toString(),
-        method: 'POST',
-        requestHeaders: {
-          ...headers,
-          'Accept': acceptHeader,
-        },
-        sendData: body,
-        responseType: 'arraybuffer',
-      );
-      final resp = await xhr;
-      final bytes = Uint8List.view(resp.response as ByteBuffer);
-      final text = utf8.decode(bytes, allowMalformed: true);
-      return (resp.status, text);
+      // 用 blob responseType 获取原始字节，避免浏览器默认 Latin-1 解码
+      final completer = Completer<String>();
+      final xhr = html.HttpRequest();
+      xhr.open('POST', url.toString());
+      xhr.responseType = 'blob';
+      for (final entry in headers.entries) {
+        xhr.setRequestHeader(entry.key, entry.value);
+      }
+      xhr.setRequestHeader('Accept', acceptHeader);
+      xhr.onLoad.listen((_) {
+        final blob = xhr.response as html.Blob;
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((_) {
+          final text = reader.result as String;
+          completer.complete(text);
+        });
+        reader.readAsText(blob, 'utf-8');
+      });
+      xhr.onError.listen((_) {
+        completer.completeError(Exception('HTTP request failed'));
+      });
+      xhr.send(body);
+      final text = await completer.future;
+      return (xhr.status, text);
     } else {
       final resp = await _client.post(url, headers: headers, body: body);
       final text = utf8.decode(resp.bodyBytes, allowMalformed: true);
@@ -133,19 +143,29 @@ class CozeStudioProvider extends BaseLlmProvider {
     String acceptHeader = 'application/json',
   }) async {
     if (kIsWeb) {
-      final xhr = html.HttpRequest.request(
-        url.toString(),
-        method: 'GET',
-        requestHeaders: {
-          ...headers,
-          'Accept': acceptHeader,
-        },
-        responseType: 'arraybuffer',
-      );
-      final resp = await xhr;
-      final bytes = Uint8List.view(resp.response as ByteBuffer);
-      final text = utf8.decode(bytes, allowMalformed: true);
-      return (resp.status, text);
+      final completer = Completer<String>();
+      final xhr = html.HttpRequest();
+      xhr.open('GET', url.toString());
+      xhr.responseType = 'blob';
+      for (final entry in headers.entries) {
+        xhr.setRequestHeader(entry.key, entry.value);
+      }
+      xhr.setRequestHeader('Accept', acceptHeader);
+      xhr.onLoad.listen((_) {
+        final blob = xhr.response as html.Blob;
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((_) {
+          final text = reader.result as String;
+          completer.complete(text);
+        });
+        reader.readAsText(blob, 'utf-8');
+      });
+      xhr.onError.listen((_) {
+        completer.completeError(Exception('HTTP request failed'));
+      });
+      xhr.send();
+      final text = await completer.future;
+      return (xhr.status, text);
     } else {
       final resp = await _client.get(url, headers: headers);
       final text = utf8.decode(resp.bodyBytes, allowMalformed: true);
