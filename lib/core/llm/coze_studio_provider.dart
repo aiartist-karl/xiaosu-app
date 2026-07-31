@@ -105,38 +105,41 @@ class CozeStudioProvider extends BaseLlmProvider {
     String acceptHeader = 'application/json',
   }) async {
     if (kIsWeb) {
+      // Web 端：用 responseType='arraybuffer' 获取原始字节流
+      // 再用 Uint8List + utf8.decode 手动解码，绕过浏览器默认 Latin-1
       final xhr = html.HttpRequest();
       xhr.open('POST', url.toString());
-      xhr.responseType = 'blob';
+      xhr.responseType = 'arraybuffer';
       for (final entry in headers.entries) {
         xhr.setRequestHeader(entry.key, entry.value);
       }
       xhr.setRequestHeader('Accept', acceptHeader);
-      final loadFuture = xhr.onLoad.first;
+
+      final completer = Completer<(int?, String)>();
+      xhr.onLoad.first.then((_) {
+        final buffer = xhr.response;
+        if (buffer is! ByteBuffer) {
+          completer.completeError(Exception('XHR: not ArrayBuffer, got ${buffer.runtimeType}'));
+          return;
+        }
+        final bytes = Uint8List.view(buffer);
+        final text = utf8.decode(bytes, allowMalformed: true);
+        completer.complete((xhr.status, text));
+      });
+      xhr.onError.first.then((_) {
+        completer.completeError(Exception('XHR onError: ${xhr.statusText}'));
+      });
+      xhr.onAbort.first.then((_) {
+        completer.completeError(Exception('XHR onAbort'));
+      });
+
       xhr.send(body);
-      await loadFuture;
-      final blob = xhr.response as html.Blob;
-      final text = await _readBlobAsText(blob);
-      return (xhr.status, text);
+      return completer.future;
     } else {
       final resp = await _client.post(url, headers: headers, body: body);
       final text = utf8.decode(resp.bodyBytes, allowMalformed: true);
       return (resp.statusCode, text);
     }
-  }
-
-  /// 将 Blob 读取为 UTF-8 文本
-  Future<String> _readBlobAsText(html.Blob blob) {
-    final completer = Completer<String>();
-    final reader = html.FileReader();
-    reader.onLoadEnd.listen((_) {
-      completer.complete(reader.result as String? ?? '');
-    });
-    reader.onError.listen((_) {
-      completer.completeError(Exception('Failed to read blob as text'));
-    });
-    reader.readAsText(blob, 'utf-8');
-    return completer.future;
   }
 
   /// GET JSON 请求，返回 (statusCode, bodyText)
@@ -148,7 +151,7 @@ class CozeStudioProvider extends BaseLlmProvider {
     if (kIsWeb) {
       final xhr = html.HttpRequest();
       xhr.open('GET', url.toString());
-      xhr.responseType = 'blob';
+      xhr.responseType = 'arraybuffer';
       for (final entry in headers.entries) {
         xhr.setRequestHeader(entry.key, entry.value);
       }
@@ -156,8 +159,12 @@ class CozeStudioProvider extends BaseLlmProvider {
       final loadFuture = xhr.onLoad.first;
       xhr.send();
       await loadFuture;
-      final blob = xhr.response as html.Blob;
-      final text = await _readBlobAsText(blob);
+      final buffer = xhr.response;
+      if (buffer is! ByteBuffer) {
+        throw Exception('XHR response is not ArrayBuffer, got ${buffer.runtimeType}');
+      }
+      final bytes = Uint8List.view(buffer);
+      final text = utf8.decode(bytes, allowMalformed: true);
       return (xhr.status, text);
     } else {
       final resp = await _client.get(url, headers: headers);
@@ -362,19 +369,18 @@ class CozeStudioProvider extends BaseLlmProvider {
 
     // 从完整响应体解析 SSE 事件
     final lines = bodyText.split('\n');
-    String? lastEventName; // 记录上一个 event: 头的名称
+    String? lastEventName;
+    final buffer = StringBuffer(); // 累积 delta 内容
 
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
 
-      // 捕获 event: 头
       if (trimmed.startsWith('event:')) {
         lastEventName = trimmed.substring(6).trim();
         continue;
       }
 
-      // 处理 data: 行
       if (!trimmed.startsWith('data:')) continue;
 
       final jsonStr = trimmed.substring(5).trim();
@@ -383,22 +389,25 @@ class CozeStudioProvider extends BaseLlmProvider {
       try {
         final event = jsonDecode(jsonStr);
         final eventType = _parseSSEEventType(event, lastEventName);
-        lastEventName = null; // 已消费，重置
+        lastEventName = null;
 
         switch (eventType) {
           case CozeSSEEventType.messageDelta:
-            // http.post 模式：响应已全部缓冲，delta 仅用于保持流式感觉
-            // 但为避免与 messageCompleted 重复，这里不 yield content
-            // （ChatEngine 的 buffer 会在 messageCompleted 时收到完整内容）
+            // 累积 delta 内容（Coze Studio completed 事件 content 为空）
+            final deltaContent = event['content'] as String? ?? '';
+            if (deltaContent.isNotEmpty) {
+              buffer.write(deltaContent);
+            }
             break;
 
           case CozeSSEEventType.messageCompleted:
-            // 只处理 answer 类型，过滤 follow_up / verbose 等内部消息
-            if (event['type'] == 'answer') {
-              final fullContent = event['content'] as String? ?? '';
-              if (fullContent.isNotEmpty) {
-                yield LLMStreamChunk(content: fullContent);
-              }
+            // 优先用 completed 的 content（如果不为空），否则用 delta 累积的内容
+            final completedContent = event['content'] as String? ?? '';
+            final fullContent = completedContent.isNotEmpty
+                ? completedContent
+                : buffer.toString();
+            if (fullContent.isNotEmpty && event['type'] == 'answer') {
+              yield LLMStreamChunk(content: fullContent);
             }
             break;
 
@@ -420,7 +429,6 @@ class CozeStudioProvider extends BaseLlmProvider {
         }
       } catch (e) {
         if (e is Exception) rethrow;
-        // 忽略 JSON 解析错误
       }
     }
 
