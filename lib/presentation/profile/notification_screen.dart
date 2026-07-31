@@ -3,9 +3,10 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaosu/presentation/theme/app_colors.dart';
 
-/// 通知设置页面
+/// 通知设置页面 - 使用 SharedPreferences 持久化
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
@@ -18,10 +19,32 @@ class _NotificationScreenState extends State<NotificationScreen> {
   bool _chatReply = true;
   bool _taskComplete = true;
   bool _scheduleReminder = true;
+  SharedPreferences? _prefs;
 
   // 免打扰时段
   TimeOfDay _dndStart = const TimeOfDay(hour: 23, minute: 0);
   TimeOfDay _dndEnd = const TimeOfDay(hour: 7, minute: 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    _prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _pushEnabled = _prefs?.getBool('notif_push') ?? true;
+      _chatReply = _prefs?.getBool('notif_chat') ?? true;
+      _taskComplete = _prefs?.getBool('notif_task') ?? true;
+      _scheduleReminder = _prefs?.getBool('notif_schedule') ?? true;
+    });
+  }
+
+  Future<void> _setBool(String key, bool value) async {
+    await _prefs?.setBool(key, value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +68,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             subtitle: _pushEnabled ? '已开启所有推送通知' : '已关闭所有推送通知',
             value: _pushEnabled,
             isDark: isDark,
-            onChanged: (v) => setState(() => _pushEnabled = v),
+            onChanged: (v) { _setBool('notif_push', v); setState(() => _pushEnabled = v); },
           ),
           const SizedBox(height: 20),
           // ─── 通知分类 ───
@@ -58,7 +81,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             value: _chatReply,
             isDark: isDark,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _chatReply = v),
+            onChanged: (v) { _setBool('notif_chat', v); setState(() => _chatReply = v); },
           ),
           const SizedBox(height: 8),
           _switchTile(
@@ -68,7 +91,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             value: _taskComplete,
             isDark: isDark,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _taskComplete = v),
+            onChanged: (v) { _setBool('notif_task', v); setState(() => _taskComplete = v); },
           ),
           const SizedBox(height: 8),
           _switchTile(
@@ -78,7 +101,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             value: _scheduleReminder,
             isDark: isDark,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _scheduleReminder = v),
+            onChanged: (v) { _setBool('notif_schedule', v); setState(() => _scheduleReminder = v); },
           ),
           const SizedBox(height: 28),
           // ─── 免打扰时段 ───

@@ -1,7 +1,7 @@
 // ============================================================================
 // 小酥 - Coze Studio LLM Provider
 // 通过 Coze Studio 后端进行对话，支持 SSE 流式响应
-// Phase 2: 使用 Session Cookie 认证
+// Phase 2: 使用 Session Cookie 认证 + PAT Token 认证
 // ============================================================================
 
 import 'dart:async';
@@ -49,8 +49,14 @@ class CozeStudioProvider extends BaseLlmProvider {
   // 当前会话 ID（多轮对话）
   String? _conversationId;
   
+  // 当前 chat ID（用于取消）
+  String? _currentChatId;
+  
   // Session Key（认证凭证）
   String? _sessionKey;
+
+  // 流式取消标志
+  bool _streamCancelled = false;
 
   // Bot ID
   String get _botId => AppConfig.cozeStudioBotId;
@@ -245,7 +251,6 @@ class CozeStudioProvider extends BaseLlmProvider {
     final startTime = DateTime.now();
 
     // 调用 /v3/chat（非流式）— PAT 认证
-    // 注意：bot_id 和 conversation_id 必须以字符串发送（Hertz JSON 绑定对 int64 有 bug）
     final url = Uri.parse('$_baseUrl${AppConfig.v3Chat}');
     final body = <String, dynamic>{
       'bot_id': _botId,
@@ -281,12 +286,11 @@ class CozeStudioProvider extends BaseLlmProvider {
 
     // 提取回复内容
     final chatId = chatData['id'] as String?;
-    final status = chatData['status'] as String?;
 
     // 获取消息列表以获取助手回复
     if (chatId != null && _conversationId != null) {
-      final messages = await _fetchMessages(chatId);
-      final assistantMessage = messages.lastWhere(
+      final msgs = await _fetchMessages(chatId);
+      final assistantMessage = msgs.lastWhere(
         (m) => m['role'] == 'assistant',
         orElse: () => <String, dynamic>{},
       );
@@ -329,7 +333,6 @@ class CozeStudioProvider extends BaseLlmProvider {
     }
 
     // 调用 /v3/chat（流式 SSE）— PAT 认证
-    // bot_id / conversation_id 以字符串发送（Hertz JSON 绑定 bug）
     final url = Uri.parse('$_baseUrl${AppConfig.v3Chat}');
     final body = <String, dynamic>{
       'bot_id': _botId,
@@ -348,92 +351,234 @@ class CozeStudioProvider extends BaseLlmProvider {
       body['conversation_id'] = _conversationId;
     }
 
-    // ── SSE 请求处理（兼容 Web 和 Native）──────────────────────────
-    // Web 端：dart:html HttpRequest + arraybuffer，手动 utf8.decode
-    // Native 端：http.Client.post + utf8.decode(bodyBytes)
     final headers = {
       ..._buildHeaders(usePAT: true),
       'Accept': 'text/event-stream',
     };
+    final bodyJson = jsonEncode(body);
 
-    final (statusCode, bodyText) = await _postJson(
-      url,
-      headers: headers,
-      body: jsonEncode(body),
-      acceptHeader: 'text/event-stream',
-    );
+    // 使用真正的流式读取
+    _streamCancelled = false;
+    final controller = StreamController<LLMStreamChunk>();
 
-    if (statusCode != 200) {
-      throw Exception('Coze Studio 请求失败: $statusCode $bodyText');
+    if (kIsWeb) {
+      _streamViaWebSSE(controller, url, headers, bodyJson);
+    } else {
+      _streamViaNativeSSE(controller, url, headers, bodyJson);
     }
 
-    // 从完整响应体解析 SSE 事件
-    final lines = bodyText.split('\n');
-    String? lastEventName;
-    final buffer = StringBuffer(); // 累积 delta 内容
+    yield* controller.stream;
+  }
 
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
+  /// Web 端真正的流式 SSE 实现
+  void _streamViaWebSSE(
+    StreamController<LLMStreamChunk> controller,
+    Uri url,
+    Map<String, String> headers,
+    String bodyJson,
+  ) {
+    final request = html.HttpRequest();
+    request
+      ..open('POST', url.toString())
+      ..responseType = 'text'
+      ..withCredentials = false;
+    headers.forEach((key, value) {
+      request.setRequestHeader(key, value);
+    });
+    request.setRequestHeader('Accept', 'text/event-stream');
 
-      if (trimmed.startsWith('event:')) {
-        lastEventName = trimmed.substring(6).trim();
-        continue;
+    var lastLength = 0;
+    var sseBuffer = StringBuffer();
+
+    request.onProgress.listen((event) {
+      if (_streamCancelled) {
+        request.abort();
+        if (!controller.isClosed) controller.close();
+        return;
+      }
+      final responseText = request.responseText ?? '';
+      if (responseText.length > lastLength) {
+        final newData = responseText.substring(lastLength);
+        lastLength = responseText.length;
+        sseBuffer.write(newData);
+        _processSSEBuffer(sseBuffer, controller);
+      }
+    });
+
+    request.onLoad.listen((_) {
+      // 处理最后可能剩余的数据
+      _processSSEBuffer(sseBuffer, controller, isFinal: true);
+      if (!controller.isClosed) controller.close();
+    });
+
+    request.onError.listen((e) {
+      if (!controller.isClosed) {
+        controller.addError(Exception('Web SSE 连接错误: $e'));
+        controller.close();
+      }
+    });
+
+    request.send(bodyJson);
+  }
+
+  /// Native 端真正的流式 SSE 实现（使用 http 包的 StreamedRequest）
+  Future<void> _streamViaNativeSSE(
+    StreamController<LLMStreamChunk> controller,
+    Uri url,
+    Map<String, String> headers,
+    String bodyJson,
+  ) async {
+    final request = http.StreamedRequest(
+      'POST',
+      url,
+    );
+    headers.forEach((key, value) {
+      request.headers[key] = value;
+    });
+    request.headers['Accept'] = 'text/event-stream';
+    request.contentLength = bodyJson.length;
+
+    try {
+      // 发送请求体
+      request.sink.add(utf8.encode(bodyJson));
+      request.sink.close();
+
+      // 获取流式响应
+      final streamedResponse = await _client.send(request);
+
+      if (streamedResponse.statusCode != 200) {
+        final errorBody = await streamedResponse.stream.bytesToString();
+        controller.addError(Exception('HTTP ${streamedResponse.statusCode}: $errorBody'));
+        controller.close();
+        return;
       }
 
-      if (!trimmed.startsWith('data:')) continue;
+      // 真正的流式读取
+      final sseBuffer = StringBuffer();
+      await for (final bytes in streamedResponse.stream) {
+        if (_streamCancelled) break;
+        final chunk = utf8.decode(bytes, allowMalformed: true);
+        sseBuffer.write(chunk);
+        _processSSEBuffer(sseBuffer, controller);
+      }
 
-      final jsonStr = trimmed.substring(5).trim();
-      if (jsonStr.isEmpty) continue;
+      // 处理最后剩余的数据
+      _processSSEBuffer(sseBuffer, controller, isFinal: true);
+    } catch (e) {
+      if (!controller.isClosed) {
+        controller.addError(Exception('Native SSE 连接错误: $e'));
+      }
+    } finally {
+      if (!controller.isClosed) {
+        controller.close();
+      }
+    }
+  }
+
+  /// 处理 SSE 缓冲区，提取完整事件并 yield
+  void _processSSEBuffer(
+    StringBuffer buffer,
+    StreamController<LLMStreamChunk> controller, {
+    bool isFinal = false,
+  }) {
+    final content = buffer.toString();
+    // SSE 事件以双换行分隔
+    final parts = content.split('\n\n');
+    
+    // 如果不是最后一次处理，保留最后一个可能不完整的部分
+    final processCount = isFinal ? parts.length : parts.length - 1;
+    
+    for (var i = 0; i < processCount; i++) {
+      final eventText = parts[i].trim();
+      if (eventText.isEmpty) continue;
+
+      String? eventName;
+      final dataLines = <String>[];
+
+      for (final line in eventText.split('\n')) {
+        final trimmed = line.trim();
+        if (trimmed.startsWith('event:')) {
+          eventName = trimmed.substring(6).trim();
+        } else if (trimmed.startsWith('data:')) {
+          dataLines.add(trimmed.substring(5).trim());
+        }
+      }
+
+      final dataStr = dataLines.join('\n');
+      if (dataStr.isEmpty) continue;
 
       try {
-        final event = jsonDecode(jsonStr);
-        final eventType = _parseSSEEventType(event, lastEventName);
-        lastEventName = null;
-
-        switch (eventType) {
-          case CozeSSEEventType.messageDelta:
-            // 累积 delta 内容（Coze Studio completed 事件 content 为空）
-            final deltaContent = event['content'] as String? ?? '';
-            if (deltaContent.isNotEmpty) {
-              buffer.write(deltaContent);
-            }
-            break;
-
-          case CozeSSEEventType.messageCompleted:
-            // 优先用 completed 的 content（如果不为空），否则用 delta 累积的内容
-            final completedContent = event['content'] as String? ?? '';
-            final fullContent = completedContent.isNotEmpty
-                ? completedContent
-                : buffer.toString();
-            if (fullContent.isNotEmpty && event['type'] == 'answer') {
-              yield LLMStreamChunk(content: fullContent);
-            }
-            break;
-
-          case CozeSSEEventType.chatCompleted:
-          case CozeSSEEventType.done:
-            yield const LLMStreamChunk(
-              content: '',
-              isDone: true,
-              finishReason: 'stop',
-            );
-            return;
-
-          case CozeSSEEventType.error:
-            final errorMsg = event['message'] ?? event['msg'] ?? '未知错误';
-            throw Exception('Coze Studio 错误: $errorMsg');
-
-          default:
-            break;
+        final event = jsonDecode(dataStr) as Map<String, dynamic>;
+        final sseType = _parseSSEEventType(event, eventName);
+        final chunk = _mapSSEEventToChunk(sseType, event);
+        if (chunk != null && !controller.isClosed) {
+          controller.add(chunk);
         }
-      } catch (e) {
-        if (e is Exception) rethrow;
+      } catch (_) {
+        // JSON 解析失败，跳过
       }
     }
 
-    // 如果遍历完所有事件仍未返回，发送完成信号
-    yield const LLMStreamChunk(content: '', isDone: true, finishReason: 'stop');
+    // 更新缓冲区：保留未处理的部分
+    buffer.clear();
+    if (!isFinal && parts.isNotEmpty) {
+      buffer.write(parts.last);
+    }
+  }
+
+  /// 将 SSE 事件映射为 LLMStreamChunk
+  LLMStreamChunk? _mapSSEEventToChunk(CozeSSEEventType type, Map<String, dynamic> event) {
+    switch (type) {
+      case CozeSSEEventType.messageDelta:
+        // 实时输出 delta 内容
+        final deltaContent = event['content'] as String? ?? '';
+        if (deltaContent.isNotEmpty) {
+          return LLMStreamChunk(content: deltaContent);
+        }
+        return null;
+
+      case CozeSSEEventType.messageCompleted:
+        // 记录 chat_id 用于取消
+        final chatId = event['chat_id'] as String?;
+        if (chatId != null) {
+          _currentChatId = chatId;
+        }
+        // 对于 answer 类型，如果 delta 没有输出内容，这里兜底
+        final completedContent = event['content'] as String? ?? '';
+        if (completedContent.isNotEmpty && event['type'] == 'answer') {
+          return LLMStreamChunk(content: completedContent);
+        }
+        return null;
+
+      case CozeSSEEventType.chatCompleted:
+      case CozeSSEEventType.done:
+        return const LLMStreamChunk(
+          content: '',
+          isDone: true,
+          finishReason: 'stop',
+        );
+
+      case CozeSSEEventType.error:
+        final errorMsg = event['message'] ?? event['msg'] ?? '未知错误';
+        throw Exception('Coze Studio 错误: $errorMsg');
+
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Future<void> cancelStream() async {
+    _streamCancelled = true;
+    if (_conversationId == null || _currentChatId == null) return;
+    final url = Uri.parse('$_baseUrl${AppConfig.v3ChatCancel}');
+    final body = jsonEncode({
+      'conversation_id': _conversationId,
+      'chat_id': _currentChatId,
+    });
+    try {
+      await _postJson(url, headers: _buildHeaders(usePAT: true), body: body);
+    } catch (_) {}
   }
 
   // ==========================================================================

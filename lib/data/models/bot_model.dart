@@ -94,8 +94,8 @@ class BotModel {
       status: BotStatus.fromString(json['publish_status']?.toString() ?? json['status']?.toString()),
       modelInfo: json['model_info'] as Map<String, dynamic>?,
       spaceId: json['space_id']?.toString(),
-      createdAt: _parseTimestamp(json['created_at']),
-      updatedAt: _parseTimestamp(json['updated_at']),
+      createdAt: _parseTimestamp(json['created_at'] ?? json['create_time']),
+      updatedAt: _parseTimestamp(json['updated_at'] ?? json['update_time']),
       isOwned: true,
     );
   }

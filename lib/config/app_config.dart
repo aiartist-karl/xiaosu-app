@@ -22,7 +22,11 @@ class AppConfig {
   static const String patToken = 'xiaosu-app-pat-4ac006ffaa1b04cf432b23acb611095e';
 
   /// 默认 Session Key（用于 /api/ 内部接口，过期后需重新登录）
-  static const String defaultSessionKey = 'eyJpZCI6NzY2ODUzMzg4MTc0MTUwODYwOCwiY3JlYXRlZF9hdCI6IjIwMjYtMDctMzFUMDM6NDc6NTkuNTgyNDMyMjYzWiIsImV4cGlyZXNfYXQiOiIyMDI2LTA4LTMwVDAzOjQ3OjU5LjU4MjQzMjRaIn0tnwQ49ZjDSoH1AqgH5OhTWq5EKh5xq6m20osMU86Pog';
+  static const String defaultSessionKey = 'eyJpZCI6NzY2ODY2NTUyNzc2OTc1OTc0NCwiY3JlYXRlZF9hdCI6IjIwMjYtMDctMzFUMTI6MTg6NTAuODE4MzQyMTYyWiIsImV4cGlyZXNfYXQiOiIyMDI2LTA4LTMwVDEyOjE4OjUwLjgxODM0MjI0NVoifWQvkGj16bIMHywd7Rws_jT4buDkTDfPN8Hn3CUAgkNc';
+
+  /// 登录凭证（用于自动获取新 session）
+  static const String loginEmail = '1643143@qq.com';
+  static const String loginPassword = '1111qqqq';
 
   // ==========================================================================
   // DeepSeek API 直连（保留作为本地 LLM 回退）

@@ -87,7 +87,7 @@ class ConversationRepository {
     final response = await _api.get(
       AppConfig.v1Conversations,
       queryParams: queryParams,
-      authType: CozeAuthType.session,
+      authType: CozeAuthType.pat,
     );
 
     if (!response.success) return [];
@@ -115,7 +115,7 @@ class ConversationRepository {
     final response = await _api.post(
       AppConfig.v1ConversationCreate,
       body: body,
-      authType: CozeAuthType.session,
+      authType: CozeAuthType.pat,
     );
 
     if (!response.success) return null;
@@ -142,7 +142,7 @@ class ConversationRepository {
     final response = await _api.get(
       AppConfig.v1ConversationRetrieve,
       queryParams: {'conversation_id': conversationId},
-      authType: CozeAuthType.session,
+      authType: CozeAuthType.pat,
     );
 
     if (!response.success) return null;
@@ -226,7 +226,7 @@ class ConversationRepository {
     final response = await _api.post(
       AppConfig.v1ConversationMessageList,
       body: body,
-      authType: CozeAuthType.session,
+      authType: CozeAuthType.pat,
     );
 
     if (!response.success) return [];
@@ -249,7 +249,7 @@ class ConversationRepository {
         'conversation_id': conversationId,
         'chat_id': chatId,
       },
-      authType: CozeAuthType.session,
+      authType: CozeAuthType.pat,
     );
 
     if (!response.success) return [];

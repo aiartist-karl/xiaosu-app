@@ -4,9 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xiaosu/presentation/theme/app_colors.dart';
 
-/// 隐私设置页面
+/// 隐私设置页面 - 使用 SharedPreferences 持久化
 class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({super.key});
 
@@ -17,8 +18,28 @@ class PrivacyScreen extends StatefulWidget {
 class _PrivacyScreenState extends State<PrivacyScreen> {
   bool _dataSync = true;
   bool _anonymousUsage = true;
+  SharedPreferences? _prefs;
 
   String? _cacheSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    _prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _dataSync = _prefs?.getBool('privacy_data_sync') ?? true;
+      _anonymousUsage = _prefs?.getBool('privacy_anonymous') ?? true;
+    });
+  }
+
+  Future<void> _setBool(String key, bool value) async {
+    await _prefs?.setBool(key, value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +63,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             subtitle: '自动同步对话历史到云端',
             value: _dataSync,
             isDark: isDark,
-            onChanged: (v) => setState(() => _dataSync = v),
+            onChanged: (v) { _setBool('privacy_data_sync', v); setState(() => _dataSync = v); },
           ),
           const SizedBox(height: 8),
           _switchTile(
@@ -51,7 +72,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
             subtitle: '帮助我们改善产品体验',
             value: _anonymousUsage,
             isDark: isDark,
-            onChanged: (v) => setState(() => _anonymousUsage = v),
+            onChanged: (v) { _setBool('privacy_anonymous', v); setState(() => _anonymousUsage = v); },
           ),
           const SizedBox(height: 28),
           // ─── 存储管理 ───

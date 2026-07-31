@@ -44,7 +44,7 @@ class WorkflowRepository {
       final response = await _api.post(
         '/v1/workflow/run',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -100,7 +100,7 @@ class WorkflowRepository {
       final streamedResponse = await _api.postStream(
         '/v1/workflow/stream_run',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (streamedResponse.statusCode >= 400) {
@@ -143,7 +143,7 @@ class WorkflowRepository {
       final streamedResponse = await _api.postStream(
         '/v1/workflow/stream_resume',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (streamedResponse.statusCode >= 400) {
@@ -183,7 +183,7 @@ class WorkflowRepository {
           'page': page.toString(),
           'page_size': pageSize.toString(),
         },
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -215,7 +215,7 @@ class WorkflowRepository {
     try {
       final response = await _api.get(
         '/v1/workflows/$workflowId',
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
@@ -252,7 +252,7 @@ class WorkflowRepository {
       final streamedResponse = await _api.postStream(
         '/v1/workflows/chat',
         body: body,
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (streamedResponse.statusCode >= 400) {
@@ -286,7 +286,7 @@ class WorkflowRepository {
       final response = await _api.post(
         '/v1/workflow/conversation/create',
         body: {'workflow_id': workflowId},
-        authType: CozeAuthType.session,
+        authType: CozeAuthType.pat,
       );
 
       if (!response.success) {
