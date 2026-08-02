@@ -10,10 +10,10 @@ class CounterApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '计数器',
+      title: '简易计数器',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
       ),
       home: const CounterPage(),
@@ -37,9 +37,9 @@ class _CounterPageState extends State<CounterPage> {
     });
   }
 
-  void _decrement() {
+  void _reset() {
     setState(() {
-      _count--;
+      _count = 0;
     });
   }
 
@@ -47,42 +47,50 @@ class _CounterPageState extends State<CounterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('计数器 App'),
+        title: const Text('简易计数器'),
         centerTitle: true,
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            const Text(
               '当前数字',
-              style: TextStyle(fontSize: 20, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 20, color: Colors.grey),
             ),
             const SizedBox(height: 16),
-            Text(
-              '$_count',
-              style: const TextStyle(
-                fontSize: 96,
-                fontWeight: FontWeight.bold,
-                color: Colors.deepPurple,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: Text(
+                '$_count',
+                key: ValueKey<int>(_count),
+                style: const TextStyle(
+                  fontSize: 96,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.deepOrange,
+                ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 48),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                FloatingActionButton(
-                  heroTag: 'decrement',
-                  onPressed: _decrement,
-                  tooltip: '减1',
-                  child: const Icon(Icons.remove),
+                FloatingActionButton.extended(
+                  heroTag: 'reset',
+                  onPressed: _reset,
+                  backgroundColor: Colors.grey.shade400,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重置'),
                 ),
                 const SizedBox(width: 24),
-                FloatingActionButton(
+                FloatingActionButton.extended(
                   heroTag: 'increment',
                   onPressed: _increment,
-                  tooltip: '加1',
-                  child: const Icon(Icons.add),
+                  icon: const Icon(Icons.add),
+                  label: const Text('+1'),
                 ),
               ],
             ),

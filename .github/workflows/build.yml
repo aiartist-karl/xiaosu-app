@@ -2,28 +2,26 @@ name: Build APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.24.0'
+          flutter-version: '3.22.0'
+          cache: true
 
       - name: Install dependencies
-        working-directory: counter_app
-        run: flutter pub get
+        run: cd counter_app && flutter pub get
 
-      - name: Build APK
-        working-directory: counter_app
-        run: flutter build apk --release
+      - name: Build APK (release)
+        run: cd counter_app && flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

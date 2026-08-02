@@ -1,5 +1,5 @@
 name: counter_app
-description: A simple counter app with increment/decrement buttons
+description: "A simple Flutter counter app"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.6
 
 dev_dependencies:
   flutter_test:
