@@ -1,33 +1,95 @@
-// ============================================================================
-// 小酥 - 主入口
-// Phase 2: 启动时检查登录状态，未登录跳转登录页
-// ============================================================================
-
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xiaosu/app.dart';
-import 'core/gateway/api_gateway.dart';
-import 'core/llm/coze_studio_provider.dart';
-import 'core/skill/skill_registry.dart';
-import 'core/skill/skills_demo.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // 初始化认证状态
-  await ApiGateway.instance.init();
-  await CozeStudioProvider.instance.init();
+void main() {
+  runApp(const CounterApp());
+}
 
-  // 注册示例技能
-  SkillRegistry.instance.registerAll([
-    WebSearchSkill(),
-    ImageGenSkill(),
-    CodeExecSkill(),
-  ]);
-  
-  runApp(
-    ProviderScope(
-      child: XiaoSuApp(),
-    ),
-  );
+class CounterApp extends StatelessWidget {
+  const CounterApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '简易计数器',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: const CounterPage(),
+    );
+  }
+}
+
+class CounterPage extends StatefulWidget {
+  const CounterPage({super.key});
+
+  @override
+  State<CounterPage> createState() => _CounterPageState();
+}
+
+class _CounterPageState extends State<CounterPage> {
+  int _count = 0;
+
+  void _increment() {
+    setState(() {
+      _count++;
+    });
+  }
+
+  void _reset() {
+    setState(() {
+      _count = 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('简易计数器'),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$_count',
+              style: const TextStyle(
+                fontSize: 96,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '当前计数值',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FloatingActionButton.extended(
+                  onPressed: _increment,
+                  tooltip: '加一',
+                  icon: const Icon(Icons.add),
+                  label: const Text('+1'),
+                ),
+                const SizedBox(width: 16),
+                FloatingActionButton.extended(
+                  onPressed: _reset,
+                  tooltip: '重置',
+                  backgroundColor: Colors.orange,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重置'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
