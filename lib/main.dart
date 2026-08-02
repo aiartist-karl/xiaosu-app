@@ -1,8 +1,10 @@
+// ============================================================================
+// 简易计数器 App（小素 AI 生成）
+// ============================================================================
+
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const CounterApp());
-}
+void main() => runApp(const CounterApp());
 
 class CounterApp extends StatelessWidget {
   const CounterApp({super.key});
@@ -13,8 +15,9 @@ class CounterApp extends StatelessWidget {
       title: '简易计数器',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF8A00)),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF12122A),
       ),
       home: const CounterPage(),
     );
@@ -31,63 +34,116 @@ class CounterPage extends StatefulWidget {
 class _CounterPageState extends State<CounterPage> {
   int _count = 0;
 
-  void _increment() {
-    setState(() {
-      _count++;
-    });
-  }
-
-  void _reset() {
-    setState(() {
-      _count = 0;
-    });
-  }
+  void _add() => setState(() => _count++);
+  void _sub() => setState(() => _count--);
+  void _reset() => setState(() => _count = 0);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('简易计数器'),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$_count',
-              style: const TextStyle(
-                fontSize: 96,
-                fontWeight: FontWeight.bold,
-                color: Colors.deepPurple,
-              ),
+      body: SafeArea(
+        child: Center(
+          child: Container(
+            width: 320,
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 28),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              '当前计数值',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                FloatingActionButton.extended(
-                  onPressed: _increment,
-                  tooltip: '加一',
-                  icon: const Icon(Icons.add),
-                  label: const Text('+1'),
+                const Text(
+                  '简易计数器',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    letterSpacing: 6,
+                  ),
                 ),
-                const SizedBox(width: 16),
-                FloatingActionButton.extended(
-                  onPressed: _reset,
-                  tooltip: '重置',
-                  backgroundColor: Colors.orange,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('重置'),
+                const SizedBox(height: 20),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: anim, child: child),
+                  child: Text(
+                    '$_count',
+                    key: ValueKey<int>(_count),
+                    style: const TextStyle(
+                      fontSize: 96,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Color(0x66FF8A00),
+                          blurRadius: 24,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _add,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF8A00),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Text('+1'),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _sub,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('-1'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _reset,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('重置'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
