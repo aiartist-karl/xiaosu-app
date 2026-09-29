@@ -1,0 +1,44 @@
+name: Build PCAPdroid APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/build-pcapdroid.yml']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download source zip
+        run: curl -sSL -o src.zip 'https://s.symsgf.xyz/minio-files/opencoze/build/pcapdroid-src_67a3bab5.zip'
+
+      - name: Unzip
+        run: |
+          mkdir -p project && cd project
+          unzip -q ../src.zip
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Init submodules
+        run: |
+          cd project
+          git init -q .
+          git config user.email build@ci && git config user.name ci
+          git add -A && git commit -qm src
+          git submodule update --init --recursive --depth 1
+
+      - name: Build APK
+        run: |
+          cd project
+          chmod +x gradlew
+          ./gradlew assembleStandardDebug -PdoNotStrip --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcapdroid-debug-apk
+          path: project/app/build/outputs/apk/standard/debug/*.apk
