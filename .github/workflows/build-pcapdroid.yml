@@ -9,36 +9,37 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Download source zip
-        run: curl -sSL -o src.zip 'https://s.symsgf.xyz/minio-files/opencoze/build/pcapdroid-src_67a3bab5.zip'
-
-      - name: Unzip
+      - name: 下载并解压源码
         run: |
-          mkdir -p project && cd project
-          unzip -q ../src.zip
+          curl -sSL -o src.zip "https://s.symsgf.xyz/minio-files/opencoze/build/pcapdroid-src_67a3bab5.zip"
+          unzip -q src.zip -d pcapdroid
+          ls pcapdroid
 
-      - name: Setup Java
+      - name: checkout（拉取子模块）
+        uses: actions/checkout@v4
+        with:
+          repository: emanuele-f/PCAPdroid
+          ref: master
+          submodules: recursive
+          path: sub
+
+      - name: 用源码覆盖（保留子模块指针）
+        run: |
+          SRC=$(find pcapdroid -maxdepth 2 -name build.gradle | head -1 | xargs dirname)
+          rsync -a --exclude .git sub/ "$SRC/"
+          echo "SRC=$SRC" >> $GITHUB_ENV
+
+      - name: 设置 Java
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
+          distribution: temurin
 
-      - name: Init submodules
-        run: |
-          cd project
-          git init -q .
-          git config user.email build@ci && git config user.name ci
-          git add -A && git commit -qm src
-          git submodule update --init --recursive --depth 1
+      - name: 编译 APK
+        run: cd $SRC && chmod +x gradlew && ./gradlew assembleStandardDebug -PdoNotStrip
 
-      - name: Build APK
-        run: |
-          cd project
-          chmod +x gradlew
-          ./gradlew assembleStandardDebug -PdoNotStrip --no-daemon
-
-      - name: Upload APK
+      - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: pcapdroid-debug-apk
-          path: project/app/build/outputs/apk/standard/debug/*.apk
+          name: PCAPdroid-debug-apk
+          path: '**/app/build/outputs/apk/**/*.apk'
